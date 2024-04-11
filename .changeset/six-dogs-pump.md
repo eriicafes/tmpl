@@ -1,0 +1,5 @@
+---
+"tmpl": minor
+---
+
+Initial API
