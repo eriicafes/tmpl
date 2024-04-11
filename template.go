@@ -1,11 +1,28 @@
 package tmpl
 
-type layoutData struct {
+// Map is a map[string]any to provide data to templates.
+type Map map[string]any
+
+type tp struct {
+	name string
+	data any
+}
+
+func (t tp) Template() (string, any) {
+	return t.name, t.data
+}
+
+// NewTemplate creates a tmpl.Template with a template name and template data.
+func NewTemplate(name string, data any) Template {
+	return tp{name, data}
+}
+
+type layoutTp struct {
 	Data  any
 	Child Template
 }
 
-func (ld layoutData) Template() (string, any) {
+func (ld layoutTp) Template() (string, any) {
 	name, _ := ld.Child.Template()
 	return name, ld
 }
@@ -28,7 +45,7 @@ func Combine(data ...any) Template {
 		if dd, ok := d.(interface{ Data() any }); ok {
 			d = dd.Data()
 		}
-		tmpl = layoutData{Data: d, Child: tmpl}
+		tmpl = layoutTp{Data: d, Child: tmpl}
 	}
 	return tmpl
 }

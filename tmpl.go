@@ -20,19 +20,14 @@ type Template interface {
 // If a template is not explicitly loaded by name, it is executed from the autoload template.
 type Templates map[string]*template.Template
 
-// Render executes a template with name and data and writes the output to w.
-func (t Templates) Render(w io.Writer, name string, data any) error {
-	ns := name
-	if _, ok := t[ns]; !ok {
-		ns = "autoload"
-	}
-	return t[ns].ExecuteTemplate(w, name, data)
-}
-
-// RenderTemplate executes a tmpl.Template tp and writes the output to w.
-func (t Templates) RenderTemplate(w io.Writer, tp Template) error {
+// Render executes a tmpl.Template tp and writes the output to w.
+func (t Templates) Render(w io.Writer, tp Template) error {
 	name, data := tp.Template()
-	return t.Render(w, name, data)
+	tname := name
+	if _, ok := t[tname]; !ok {
+		tname = "autoload"
+	}
+	return t[tname].ExecuteTemplate(w, name, data)
 }
 
 type templatesParser struct {
@@ -69,6 +64,8 @@ func NewFS(fsys fs.FS) *templatesParser {
 // or modify configurations will apply to the copy but not the original.
 //
 // Clone can be used to preapre templates with similar base autoloads or configurations.
+//
+// Clone returns an error if cloning any of the templates returns an error.
 func (t *templatesParser) Clone() (*templatesParser, error) {
 	var err error
 	templates := make(Templates, len(t.templates))
@@ -87,6 +84,22 @@ func (t *templatesParser) Clone() (*templatesParser, error) {
 		templates:      templates,
 		loadErr:        t.loadErr,
 	}, nil
+}
+
+// MustClone clones a template parser with all it's loaded templates and configuration.
+//
+// MustClone creates a copy of the template parser, so further calls to load templates
+// or modify configurations will apply to the copy but not the original.
+//
+// MustClone can be used to preapre templates with similar base autoloads or configurations.
+//
+// MustClone panics if cloning any of the templates returns an error.
+func (t *templatesParser) MustClone() *templatesParser {
+	tc, err := t.Clone()
+	if err != nil {
+		panic(err)
+	}
+	return tc
 }
 
 // SetExt sets the file extension of template files.
@@ -176,7 +189,7 @@ func (t *templatesParser) AutoloadShallow(dirs ...string) *templatesParser {
 //
 // tp.Load("header", "pages/dashboard")
 //
-// It is prefered to load commonly used templates with Autoload.
+// Prefer loading commonly used templates with Autoload.
 func (t *templatesParser) Load(files ...string) *templatesParser {
 	if t.loadErr != nil {
 		return t
