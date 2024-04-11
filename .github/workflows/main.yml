@@ -25,5 +25,7 @@ jobs:
       - name: Create Release or Release Pull Request
         id: changesets
         uses: changesets/action@v1
+        with:
+          publish: sh publish.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
