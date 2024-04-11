@@ -179,7 +179,8 @@ type Layout struct {
 
 ```html
 <!-- templates/pages/index.html -->
-{{ template "pages/layout" . }} {{ define "content" }}
+{{ template "pages/layout" . }}
+{{ define "content" }}
 <main>
   <p>{{ .Username }}</p>
 </main>
@@ -216,7 +217,7 @@ func (i Index) Template() (string, any) {
 func main() {
 	tp := tmpl.New("templates").LoadDir("pages").MustParse()
 
-	err := tp.Render(os.Stdout, pages.Index{Username: "Johndoe"})
+	err := tp.Render(os.Stdout, pages.Index{Username: "Johndoe"}) // just works
 }
 ```
 
