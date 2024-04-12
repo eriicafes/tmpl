@@ -1,5 +1,11 @@
 # tmpl
 
+## 0.2.1
+
+### Patch Changes
+
+- 6bc368f: Update docs
+
 ## 0.2.0
 
 ### Minor Changes
