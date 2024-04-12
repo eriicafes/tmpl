@@ -2,9 +2,9 @@
 
 ### Simple and powerful go templates API with zero build.
 
-Tmpl makes go templates composable, easy to work with and predictable, perfect for rendering pages with layouts or rendering page partials with frameworks like [htmx.org](https://htmx.org).
+Tmpl makes go templates composable, easy to work with and predictable, suitable for rendering pages with layouts or rendering page partials with frameworks like [htmx.org](https://htmx.org).
 
-Tmpl only organizes the way you load [go templates](https://pkg.go.dev/html/template) with zero dependencies.
+Tmpl only organizes the way you load [go templates](https://pkg.go.dev/html/template).
 
 ## Installation
 
@@ -78,7 +78,7 @@ tp := tmpl.New("templates").
     MustParse()
 ```
 
-### Load single templates with any associated templates.
+### Load single template with any associated templates.
 
 The loaded template is named after the last template argument.
 All preceeding templates arguments are associated with the loaded template.
@@ -98,7 +98,7 @@ tp := tmpl.New("templates").
 
 A template is any type that implements `tmpl.Template`. The Template method returns the template name and template data.
 
-Here, the rendered template name and the template data are tightly coupled.
+> The rendered template name and the template data are tightly coupled.
 
 ```go
 type Home struct {
@@ -120,7 +120,7 @@ func main() {
 
 `tmpl.NewTemplate` wraps any value in an internal struct that implements `tmpl.Template`.
 
-Here, the rendered template name and the template data are loosely coupled.
+> The rendered template name and the template data are loosely coupled.
 
 ```go
 func main() {
@@ -132,9 +132,10 @@ func main() {
 }
 ```
 
-## Layouts templates
+## Layouts
 
-Templates with layouts are rendered by rendering the parent template and defining a block to fill the template's slot.
+Templates with layouts render their layout template and define a block to fill the layout template's slot.
+See the example below:
 
 ### Directory structure
 
@@ -179,7 +180,8 @@ type Layout struct {
 
 ```html
 <!-- templates/pages/index.html -->
-{{ template "pages/layout" . }} {{ define "content" }}
+{{ template "pages/layout" . }}
+{{ define "content" }}
 <main>
   <p>{{ .Username }}</p>
 </main>
@@ -203,7 +205,7 @@ func (i Index) Template() (string, any) {
     return "pages/index", tmpl.Combine(layout, i)
 }
 ```
-> `tmpl.Combine` combines layouts and the final template
+> `tmpl.Combine` combines layouts and the final template and creates the template data in the required shape.
 
 `templates/pages/layout.html` renders the html shell and renders the `content` block. `templates/pages/index.html` renders the layout and defines the `content` block.
 
@@ -228,7 +230,8 @@ func main() {
 func main() {
     tp := tmpl.New("templates").LoadDir("pages").MustParse()
 
-    // manually provide layout data and template data within the .Child
+    // manually provide the template data
+    // .Data for the layout and .Child for the page
     err := tp.Render(os.Stdout, tmpl.NewTemplate("pages/index", tmpl.Map{
         "Data": tmpl.Map{
             "Title": "Home title 2",
