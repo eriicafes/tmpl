@@ -27,7 +27,7 @@ func (ld layoutTp) Template() (string, any) {
 	return name, ld
 }
 
-// Combine combines layout templates and the final template.
+// Combine combines layouts and the final template.
 // The last argument must be a tmpl.Template.
 //
 // All arguments except the last are layout data.

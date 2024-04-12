@@ -14,11 +14,12 @@ go get github.com/eriicafes/tmpl
 
 ## Features
 
-- Execute templates with structs
+- Render templates with structs
+- Colocate template and template data
 - Automatic templates loading
 - Supports template layouts
 - Zero build required
-- Pure go templates (zero dependencies)
+- Pure [go templates](https://pkg.go.dev/html/template) (zero dependencies)
 
 ## Setup
 
@@ -42,8 +43,7 @@ tp := tmpl.New("templates").
     OnLoad(func(name string, t *template.Template) {
         // called on template load, before template is parsed
         // register template funcs here
-        t.Funcs(template.FuncMap{})
-    }).
+    t.Funcs(template.FuncMap{})}).
     MustParse()
 ```
 
@@ -94,7 +94,7 @@ tp := tmpl.New("templates").
 
 ## Render templates
 
-### Render struct template (recommended)
+### Render template with struct (recommended)
 
 A template is any type that implements `tmpl.Template`. The Template method returns the template name and template data.
 
@@ -102,21 +102,21 @@ Here, the rendered template name and the template data are tightly coupled.
 
 ```go
 type Home struct {
-	Title string
+    Title string
 }
 
 func (h Home) Template() (string, any) {
-	return "pages/home", h
+    return "pages/home", h
 }
 
 func main() {
-	tp := tmpl.New("templates").LoadDir("pages").MustParse()
+    tp := tmpl.New("templates").LoadDir("pages").MustParse()
 
-	err := tp.Render(os.Stdout, Home{Title: "Homepage"})
+    err := tp.Render(os.Stdout, Home{Title: "Homepage"})
 }
 ```
 
-### Render template using `tmpl.NewTemplate`
+### Render template with `tmpl.NewTemplate`
 
 `tmpl.NewTemplate` wraps any value in an internal struct that implements `tmpl.Template`.
 
@@ -124,9 +124,9 @@ Here, the rendered template name and the template data are loosely coupled.
 
 ```go
 func main() {
-	tp := tmpl.New("templates").LoadDir("pages").MustParse()
+    tp := tmpl.New("templates").LoadDir("pages").MustParse()
 
-	err := tp.Render(os.Stdout, tmpl.NewTemplate("pages/home", tmpl.Map{
+    err := tp.Render(os.Stdout, tmpl.NewTemplate("pages/home", tmpl.Map{
         "Title": "Homepage 2",
     }))
 }
@@ -179,8 +179,7 @@ type Layout struct {
 
 ```html
 <!-- templates/pages/index.html -->
-{{ template "pages/layout" . }}
-{{ define "content" }}
+{{ template "pages/layout" . }} {{ define "content" }}
 <main>
   <p>{{ .Username }}</p>
 </main>
@@ -192,7 +191,7 @@ type Layout struct {
 package pages
 
 import (
-	"github.com/eriicafes/tmpl"
+    "github.com/eriicafes/tmpl"
 )
 
 type Index struct {
@@ -204,6 +203,7 @@ func (i Index) Template() (string, any) {
     return "pages/index", tmpl.Combine(layout, i)
 }
 ```
+> `tmpl.Combine` combines layouts and the final template
 
 `templates/pages/layout.html` renders the html shell and renders the `content` block. `templates/pages/index.html` renders the layout and defines the `content` block.
 
@@ -211,23 +211,25 @@ func (i Index) Template() (string, any) {
 
 `templates/pages/index.html` is the entry point. It renders the layout and passes all the template data to the layout. `templates/pages/layout.html` receives the template data which should contain `.Data` and `.Child` fields (`.Data` is the layout data and `.Child` is the data for the child template).
 
-**Render struct template with layout (recommended)**
+### Render layouts with struct (recommended)
 
 ```go
 func main() {
-	tp := tmpl.New("templates").LoadDir("pages").MustParse()
+    tp := tmpl.New("templates").LoadDir("pages").MustParse()
 
-	err := tp.Render(os.Stdout, pages.Index{Username: "Johndoe"}) // just works
+    // just works
+    err := tp.Render(os.Stdout, pages.Index{Username: "Johndoe"})
 }
 ```
 
-**Render template using `tmpl.NewTemplate`**
+### Render layouts with `tmpl.NewTemplate`
 
 ```go
 func main() {
-	tp := tmpl.New("templates").LoadDir("pages").MustParse()
+    tp := tmpl.New("templates").LoadDir("pages").MustParse()
 
-	err := tp.Render(os.Stdout, tmpl.NewTemplate("pages/index", tmpl.Map{
+    // manually provide layout data and template data within the .Child
+    err := tp.Render(os.Stdout, tmpl.NewTemplate("pages/index", tmpl.Map{
         "Data": tmpl.Map{
             "Title": "Home title 2",
         },

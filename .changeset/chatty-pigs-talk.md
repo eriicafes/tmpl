@@ -1,0 +1,5 @@
+---
+"tmpl": patch
+---
+
+Update docs
