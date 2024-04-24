@@ -202,10 +202,10 @@ type Index struct {
 
 func (i Index) Template() (string, any) {
     layout := Layout{Title: "Home title"}
-    return "pages/index", tmpl.Combine(layout, i)
+    return tmpl.Combine("pages/index", layout, i).Template()
 }
 ```
-> `tmpl.Combine` combines layouts and the final template and creates the template data in the required shape.
+> `tmpl.Combine` composes layout data and the final template data.
 
 `templates/pages/layout.html` renders the html shell and renders the `content` block. `templates/pages/index.html` renders the layout and defines the `content` block.
 
@@ -221,6 +221,20 @@ func main() {
 
     // just works
     err := tp.Render(os.Stdout, pages.Index{Username: "Johndoe"})
+}
+```
+
+### Render layouts with `tmpl.Combine`
+
+```go
+func main() {
+    tp := tmpl.New("templates").LoadDir("pages").MustParse()
+
+    layout := tmpl.Map{"Title": "Home title 2"}
+    page := tmpl.Map{"Username": "Johndoe2"}
+    // tmpl.Combine composes layout and template data
+    // it is also being used in the struct method
+    err := tp.Render(os.Stdout, tmpl.Combine("pages/index", layout, page))
 }
 ```
 

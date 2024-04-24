@@ -17,35 +17,25 @@ func NewTemplate(name string, data any) Template {
 	return tp{name, data}
 }
 
-type layoutTp struct {
-	Data  any
-	Child Template
-}
-
-func (ld layoutTp) Template() (string, any) {
-	name, _ := ld.Child.Template()
-	return name, ld
-}
-
-// Combine combines layouts and the final template.
-// The last argument must be a tmpl.Template.
+// Combine composes layout data and the final template data.
 //
-// All arguments except the last are layout data.
 // Layout templates receive .Data and .Child as template data.
-//
-// Layout data may implement the interface{ Data() any } to modify the final value that gets passed to the layout template as .Data.
-func Combine(data ...any) Template {
-	var tmpl Template
+// data may implement interface{ Data() any } to modify the value that gets passed to the template.
+func Combine(name string, data ...any) Template {
+	var td any
 	for i := len(data) - 1; i >= 0; i-- {
 		d := data[i]
-		if t, ok := d.(Template); ok {
-			tmpl = t
-			continue
-		}
+
+		// optionally transform template data
 		if dd, ok := d.(interface{ Data() any }); ok {
 			d = dd.Data()
 		}
-		tmpl = layoutTp{Data: d, Child: tmpl}
+
+		if td == nil {
+			td = d
+		} else {
+			td = Map{"Data": d, "Child": td}
+		}
 	}
-	return tmpl
+	return NewTemplate(name, td)
 }
