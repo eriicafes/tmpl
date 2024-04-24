@@ -1,5 +1,11 @@
 # tmpl
 
+## 0.3.0
+
+### Minor Changes
+
+- 2bfc93e: Update tmpl.Combine API
+
 ## 0.2.1
 
 ### Patch Changes
