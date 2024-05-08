@@ -5,6 +5,7 @@ permissions:
   id-token: write
   pull-requests: write
 on:
+  pull_request:
   push:
     branches:
       - main
@@ -27,6 +28,7 @@ jobs:
   release:
     name: Version Releases
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' }}
     needs: test
     steps:
       - uses: actions/checkout@v4
