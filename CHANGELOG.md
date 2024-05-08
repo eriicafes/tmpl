@@ -1,5 +1,15 @@
 # tmpl
 
+## 0.4.0
+
+### Minor Changes
+
+- 90c5f3c: Rename templatesParser.LoadDir to templatesParser.LoadWithLayouts
+  Merge Combine and NewTemplate to one API and rename to Tmpl
+  Add AssociatedTemplates
+  Update docs
+  Add tests
+
 ## 0.3.0
 
 ### Minor Changes
