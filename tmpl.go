@@ -9,10 +9,20 @@ import (
 
 // Template is the interface that enables types as templates.
 //
-// Template returns a template filename and a template data.
+// Template returns a template name and template data.
 // The returned template data is directly available to the template.
 type Template interface {
 	Template() (name string, data any)
+}
+
+// AssociatedTemplate is the interface that enables types as associated templates.
+// An associated template is any template that is parsed while loading a template.
+// This includes all define blocks, layouts, autoloads and the loaded template itself.
+//
+// AssociatedTemplate returns a base template name, an associated template name and template data.
+// The returned template data is directly available to the associated template.
+type AssociatedTemplate interface {
+	AssociatedTemplate() (base string, name string, data any)
 }
 
 // Templates is a map[string]*template.Template holding all loaded templates.
@@ -20,7 +30,7 @@ type Template interface {
 // If a template is not explicitly loaded by name, it is executed from the autoload template.
 type Templates map[string]*template.Template
 
-// Render executes a tmpl.Template tp and writes the output to w.
+// Render executes a Template tp and writes the output to w.
 func (t Templates) Render(w io.Writer, tp Template) error {
 	name, data := tp.Template()
 	tname := name
@@ -28,6 +38,15 @@ func (t Templates) Render(w io.Writer, tp Template) error {
 		tname = "autoload"
 	}
 	return t[tname].ExecuteTemplate(w, name, data)
+}
+
+// RenderAssociated executes the associated template with the given name for a Template tp and writes the output to w.
+func (t Templates) RenderAssociated(w io.Writer, atp AssociatedTemplate) error {
+	bname, name, data := atp.AssociatedTemplate()
+	if _, ok := t[bname]; !ok {
+		bname = "autoload"
+	}
+	return t[bname].ExecuteTemplate(w, name, data)
 }
 
 type templatesParser struct {
@@ -210,11 +229,9 @@ func (t *templatesParser) Load(files ...string) *templatesParser {
 	return t
 }
 
-// Load loads all templates and their layout templates in a directory.
+// LoadWithLayouts loads all templates and their layout templates in a directory.
 // The template name is the last template filename.
-//
-// It is prefered to load commonly used templates with Autoload.
-func (t *templatesParser) LoadDir(dir string) *templatesParser {
+func (t *templatesParser) LoadWithLayouts(dir string) *templatesParser {
 	if t.loadErr != nil {
 		return t
 	}
