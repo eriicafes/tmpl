@@ -1,6 +1,6 @@
 # Go Tmpl
 
-### Simple and powerful go templates API with zero build.
+### Simple and powerful go templates API with zero code generation.
 
 Tmpl makes go templates composable, easy to work with and predictable, suitable for rendering pages with layouts or rendering page partials with frameworks like [htmx.org](https://htmx.org).
 
@@ -18,7 +18,7 @@ go get github.com/eriicafes/tmpl
 - Colocate template and template data
 - Automatic templates loading
 - Supports template layouts
-- Zero build required
+- Zero code generation required
 - Pure [go templates](https://pkg.go.dev/html/template) (zero dependencies)
 
 ## Setup
@@ -39,11 +39,12 @@ tp := tmpl.New("templates").MustParse()
 tp := tmpl.New("templates").
     SetExt("tmpl"). // default is "html"
     SetLayoutFilename("_layout"). // default is "layout"
-    SetLayoutDir("pages").
+    SetLayoutRoot("pages").
     OnLoad(func(name string, t *template.Template) {
         // called on template load, before template is parsed
         // register template funcs here
-    t.Funcs(template.FuncMap{})}).
+        t.Funcs(template.FuncMap{})
+    }).
     MustParse()
 ```
 
@@ -132,6 +133,54 @@ func main() {
 }
 ```
 
+### Render template with struct and `tmpl.Tmpl` (recommended for layouts)
+
+Use `tmpl.Tmpl` to compose template data.
+When more than one data argument is provided `tmpl.Tmpl` composes the arguments as nested template data.
+```go
+// for example the template below
+tp1 := tmpl.Tmpl("template", 1)
+// will have the following template data
+data1 = 1
+
+// while the template below
+tp2 := tmpl.Tmpl("template", 1, "one", true)
+// will have the following template data
+data2 := tmpl.Map{
+  "Data": 1,
+  "Child": tmpl.Map{
+    "Data":  "one",
+    "Child": true,
+  }
+}
+```
+
+> The rendered template name and the template data are tightly coupled.
+
+```go
+type Layout struct {
+    Title string
+}
+
+type Home struct {
+    Layout Layout
+    Username string
+}
+
+func (h Home) Template() (string, any) {
+    return tmpl.Tmpl("pages/home", h.Layout, h).Template()
+}
+
+func main() {
+    tp := tmpl.New("templates").LoadWithLayouts("pages").MustParse()
+
+    err := tp.Render(os.Stdout, Home{
+        Layout: Layout{Title: "Homepage"},
+        Username: "Johndoe",
+    })
+}
+```
+
 ## Layouts
 
 Templates with layouts render their layout template and define a block to fill the layout template's slots.
@@ -181,6 +230,7 @@ type Layout struct {
 ```html
 <!-- templates/pages/index.html -->
 {{ template "pages/layout" . }}
+
 {{ define "content" }}
 <main>
   <p>Hello {{ .Username }}</p>
@@ -201,26 +251,16 @@ type Index struct {
 }
 
 func (i Index) Template() (string, any) {
-    layout := Layout{Title: "Home title"}
+    layout := Layout{Title: "Homepage"}
     return tmpl.Tmpl("pages/index", layout, i).Template()
 }
 ```
-> `tmpl.Tmpl` composes multiple arguments as layout data and the last being the template data.
+> When more than one data argument is provided `tmpl.Tmpl` composes the arguments as nested template data.
 
 `templates/pages/index.html` is the entry point. It renders the layout and passes all the template data to the layout. `templates/pages/layout.html` receives the template data which should contain `.Data` and `.Child` fields (`.Data` is the layout data and `.Child` is the data for the child template).
 
-`templates/pages/layout.html` renders the html shell and renders the `content` block. `templates/pages/index.html` renders the layout and defines the `content` block.
-
-### Render layouts with struct (recommended)
-
-```go
-func main() {
-    tp := tmpl.New("templates").LoadWithLayouts("pages").MustParse()
-
-    // just works
-    err := tp.Render(os.Stdout, pages.Index{Username: "Johndoe"})
-}
-```
+`templates/pages/index.html` renders the layout and defines the `content` block.
+`templates/pages/layout.html` renders the html shell and renders the `content` block already defined by `templates/pages/index.html`.
 
 ### Render layouts with `tmpl.Tmpl`
 
@@ -228,27 +268,27 @@ func main() {
 func main() {
     tp := tmpl.New("templates").LoadWithLayouts("pages").MustParse()
 
-    layout := tmpl.Map{"Title": "Home title 2"}
-    page := tmpl.Map{"Username": "Johndoe2"}
-    // same thing as in the struct method
+    layout := tmpl.Map{"Title": "Homepage"}
+    page := tmpl.Map{"Username": "Johndoe"}
     err := tp.Render(os.Stdout, tmpl.Tmpl("pages/index", layout, page))
 }
 ```
 
-### Render layouts with `tmpl.Tmpl` without using multiple arguments
+### Render layouts with a custom `tmpl.TmplFunc`
+The default field names for the nested template data with `tmpl.Tmpl` are `.Data` and `.Child`. If you want to use different names for them you can use `tmpl.TmplFunc`.
 
 ```go
 func main() {
     tp := tmpl.New("templates").LoadWithLayouts("pages").MustParse()
+    customTmpl := tmpl.TmplFunc("Props", "ChildProps")
 
-    // manually structure the template data
-    // .Data for the layout and .Child for the page
-    err := tp.Render(os.Stdout, tmpl.Tmpl("pages/index", tmpl.Map{
-        "Data": tmpl.Map{"Title": "Home title 3"},
-        "Child": tmpl.Map{"Username": "Johndoe3"},
-    }))
+    layout := tmpl.Map{"Title": "Homepage"}
+    page := tmpl.Map{"Username": "Johndoe"}
+    err := tp.Render(os.Stdout, customTmpl("pages/index", layout, page))
 }
 ```
+> template data is now a map of "Props" and "ChildProps" you should update the template files accordingly.
+
 
 ### Optionally modify data with `tmpl.Tmpl`
 
@@ -292,10 +332,7 @@ func main() {
 
 ## Associated Templates
 
-An associated template is any template that is parsed while loading a template.
-This includes all define blocks, layouts, autoloads and the loaded template itself.
-
-This is useful for rendering partials defined within the template. Below is an exmaple implementing a counter with htmx.
+Associated templates are named templates within a loaded template. This is useful for rendering partials defined within the template. Below is an example implementing a counter with htmx.
 
 ```html
 <!-- templates/pages/counter.html -->
@@ -337,7 +374,7 @@ type CounterPage struct {
 }
 
 func (p CounterPage) Template() (string, any) {
-    return tmpl.Tmpl("pages/index", Layout{}, p).Template()
+    return tmpl.Tmpl("pages/index", nil, p).Template()
 }
 ```
 
