@@ -1,6 +1,7 @@
 package tmpl
 
 import (
+	"fmt"
 	"html/template"
 	"io/fs"
 	"path/filepath"
@@ -11,13 +12,13 @@ import (
 // parseFiles parses template files into t.
 //
 // Repeated template names are overriden.
-func parseFiles(fsys fs.FS, t *template.Template, filenames []string) (*template.Template, error) {
+func parseFiles(fsys fs.FS, t *template.Template, ext string, filenames []string) (*template.Template, error) {
 	for _, filename := range filenames {
 		b, err := fs.ReadFile(fsys, filename)
 		if err != nil {
 			return nil, err
 		}
-		name := strings.TrimSuffix(filename, filepath.Ext(filename))
+		name := strings.TrimSuffix(filename, "."+ext)
 		var tmpl *template.Template
 		if name == t.Name() {
 			tmpl = t
@@ -61,30 +62,31 @@ func walkFiles(fsys fs.FS, ext string, dirs []string, shallow bool) []string {
 // walkFilesWithLayout walks a directory and for each filename that matches the file extension ext,
 // returns a slice of all layouts filenames in parent directories matching layoutFilename and the matched filename.
 //
-// If layourDir is not provided only layout filenames from dir and it's sub directories will be matched.
-// Use layoutDir to start walking at a higher up directory than dir if there are layouts outside of dir.
-func walkFilesWithLayout(fsys fs.FS, ext string, layoutDir string, layoutFilename string, dir string) map[string][]string {
+// If layoutRoot is not provided only layout filenames from dir and it's sub directories will be matched.
+// Use layoutRoot to start walking at a higher up directory than dir if there are layouts outside of dir.
+func walkFilesWithLayout(fsys fs.FS, ext string, layoutRoot string, layoutFilename string, dir string) map[string][]string {
 	groups := make(map[string][]string)
 	layouts := make([]string, 0)
-	if layoutDir == "" {
-		layoutDir = dir
+	if layoutRoot == "" {
+		layoutRoot = dir
 	}
-	fs.WalkDir(fsys, layoutDir, func(path string, d fs.DirEntry, err error) error {
+	fs.WalkDir(fsys, layoutRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			return err
 		}
-		name := strings.TrimSuffix(path, "."+ext)
-		if ext != "" && path == name {
+		pathWithoutExt := strings.TrimSuffix(path, "."+ext)
+		if ext != "" && path == pathWithoutExt {
 			return err
 		}
-		_, filename := filepath.Split(name)
+		fmt.Println("walked path:", pathWithoutExt)
+		_, filename := filepath.Split(pathWithoutExt)
 		if filename == layoutFilename {
 			layouts = append(layouts, path)
-		} else if layoutDir == "." || strings.HasPrefix(name, dir) {
-			groups[name] = []string{path}
+		} else if strings.HasPrefix(pathWithoutExt, dir) {
+			groups[pathWithoutExt] = []string{path}
 		}
 		return err
 	})
@@ -100,7 +102,7 @@ func walkFilesWithLayout(fsys fs.FS, ext string, layoutDir string, layoutFilenam
 		fileDir, _ := filepath.Split(name)
 		for _, layout := range layouts {
 			layoutDir, _ := filepath.Split(layout)
-			if strings.HasPrefix(name, layoutDir) {
+			if strings.HasPrefix(fileDir, layoutDir) {
 				files = append(files, layout)
 			}
 			if layoutDir == fileDir {
