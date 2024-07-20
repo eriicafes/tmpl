@@ -1,5 +1,11 @@
 # tmpl
 
+## 0.5.0
+
+### Minor Changes
+
+- d1af662: Rename SetLayoutDir to SetLayoutRoot
+
 ## 0.4.0
 
 ### Minor Changes
