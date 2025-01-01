@@ -22,4 +22,6 @@ var funcMap = template.FuncMap{
 
 		return m, nil
 	},
+
+	"stream": stream,
 }
