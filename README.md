@@ -6,6 +6,9 @@ Tmpl makes go templates composable, easy to work with and predictable, suitable 
 
 Tmpl only organizes the way you load [go templates](https://pkg.go.dev/html/template).
 
+Tmpl provides first-party support for [Vite](https://vite.dev).
+See [Vite integration](vite/README.md) section.
+
 ## Installation
 
 ```sh
@@ -18,31 +21,33 @@ go get github.com/eriicafes/tmpl
 - Colocate template and template data
 - Automatic templates loading
 - Supports template layouts
-- Zero code generation required
-- Pure [go templates](https://pkg.go.dev/html/template) (zero dependencies)
+- Pure [go templates](https://pkg.go.dev/html/template) (zero dependencies, zero code generation)
+- [HTML streaming support](#html-streaming)
+- First-party [Vite integration](vite/README.md)
 
 ## Setup
 
 ### Initialize templates.
 
 ```go
-tp, err := tmpl.New("templates").Parse()
+fs := os.DirFS("templates")
+
+tp, err := tmpl.New(fs).Parse()
 
 // or
 
-tp := tmpl.New("templates").MustParse()
+tp := tmpl.New(fs).MustParse()
 ```
 
 ### Configure templates (optional)
 
 ```go
-tp := tmpl.New("templates").
+tp := tmpl.New(os.DirFS("templates")).
     SetExt("tmpl"). // default is "html"
     SetLayoutFilename("_layout"). // default is "layout"
-    SetLayoutRoot("pages").
+    Funcs(funcMaps...). // register template funcs here
     OnLoad(func(name string, t *template.Template) {
         // called on template load, before template is parsed
-        // register template funcs here
         t.Funcs(template.FuncMap{})
     }).
     MustParse()
@@ -53,40 +58,31 @@ tp := tmpl.New("templates").
 Autoloaded templates are available in all loaded templates.
 
 ```go
-tp := tmpl.New("templates").
+tp := tmpl.New(os.DirFS("templates")).
     Autoload("components").
-    MustParse()
-```
-
-Use shallow autoload to skip templates in sub-directories.
-
-```go
-tp := tmpl.New("templates").
-    AutoloadShallow("components/ui").
-    AutoloadShallow("components/icons").
     MustParse()
 ```
 
 ## Load templates
 
-### Load all templates including layouts (recommended).
+### Load tree with layouts (recommended).
 
-Load all templates like in a file-based router. By default the layout filename is `layout`.
+Load tree loads all templates like in a file-based router. By default the layout filename is `layout`.
 
 ```go
-tp := tmpl.New("templates").
-    LoadWithLayouts("pages").
+tp := tmpl.New(os.DirFS("templates")).
+    LoadTree("pages").
     MustParse()
 ```
 
 ### Load single template with any associated templates.
 
-The loaded template is named after the last template argument.
-All preceeding template arguments are associated with the loaded template.
+The loaded template is named after the first template filename.
+All preceeding template filenames are associated with the loaded template.
 
 ```go
-tp := tmpl.New("templates").
-    Load("partials/header", "partials/footer", "pages/index").
+tp := tmpl.New(os.DirFS("templates")).
+    Load("pages/index", "partials/header", "partials/footer").
     MustParse()
 
 // in the above example, the loaded template is named "pages/index"
@@ -99,7 +95,7 @@ tp := tmpl.New("templates").
 
 A template is any type that implements `tmpl.Template`. The Template method returns the template name and template data.
 
-> The rendered template name and the template data are tightly coupled.
+> The template name and the template data are tightly coupled.
 
 ```go
 type Home struct {
@@ -111,9 +107,10 @@ func (h Home) Template() (string, any) {
 }
 
 func main() {
-    tp := tmpl.New("templates").LoadWithLayouts("pages").MustParse()
+    templates := tmpl.New(os.DirFS("templates")).LoadTree("pages").MustParse()
+    tr := templates.Renderer()
 
-    err := tp.Render(os.Stdout, Home{Title: "Homepage"})
+    err := tr.Render(os.Stdout, Home{"Homepage"})
 }
 ```
 
@@ -121,13 +118,14 @@ func main() {
 
 `tmpl.Tmpl` wraps any value in an internal struct that implements `tmpl.Template`.
 
-> The rendered template name and the template data are loosely coupled.
+> The template name and the template data are loosely coupled.
 
 ```go
 func main() {
-    tp := tmpl.New("templates").LoadWithLayouts("pages").MustParse()
+    templates := tmpl.New(os.DirFS("templates")).LoadTree("pages").MustParse()
+    tr := templates.Renderer()
 
-    err := tp.Render(os.Stdout, tmpl.Tmpl("pages/home", tmpl.Map{
+    err := tr.Render(os.Stdout, tmpl.Tmpl("pages/home", tmpl.Map{
         "Title": "Homepage 2",
     }))
 }
@@ -163,7 +161,7 @@ type Layout struct {
 }
 
 type Home struct {
-    Layout Layout
+    Layout
     Username string
 }
 
@@ -172,12 +170,10 @@ func (h Home) Template() (string, any) {
 }
 
 func main() {
-    tp := tmpl.New("templates").LoadWithLayouts("pages").MustParse()
+    templates := tmpl.New(os.DirFS("templates")).LoadTree("pages").MustParse()
+    tr := templates.Renderer()
 
-    err := tp.Render(os.Stdout, Home{
-        Layout: Layout{Title: "Homepage"},
-        Username: "Johndoe",
-    })
+    err := tr.Render(os.Stdout, Home{Layout{"Homepage"}, "Johndoe"})
 }
 ```
 
@@ -220,7 +216,6 @@ See the example below:
 
 ```go
 // templates/pages/layout.go
-package pages
 
 type Layout struct {
     Title string
@@ -240,172 +235,97 @@ type Layout struct {
 
 ```go
 // templates/pages/index.go
-package pages
-
-import (
-    "github.com/eriicafes/tmpl"
-)
 
 type Index struct {
     Username string
 }
 
 func (i Index) Template() (string, any) {
-    layout := Layout{Title: "Homepage"}
-    return tmpl.Tmpl("pages/index", layout, i).Template()
+    return tmpl.Tmpl("pages/index", Layout{"Homepage"}, i).Template()
 }
 ```
 > When more than one data argument is provided `tmpl.Tmpl` composes the arguments as nested template data.
 
-`templates/pages/index.html` is the entry point. It renders the layout and passes all the template data to the layout. `templates/pages/layout.html` receives the template data which should contain `.Data` and `.Child` fields (`.Data` is the layout data and `.Child` is the data for the child template).
-
-`templates/pages/index.html` renders the layout and defines the `content` block.
-`templates/pages/layout.html` renders the html shell and renders the `content` block already defined by `templates/pages/index.html`.
-
-### Render layouts with `tmpl.Tmpl`
-
-```go
-func main() {
-    tp := tmpl.New("templates").LoadWithLayouts("pages").MustParse()
-
-    layout := tmpl.Map{"Title": "Homepage"}
-    page := tmpl.Map{"Username": "Johndoe"}
-    err := tp.Render(os.Stdout, tmpl.Tmpl("pages/index", layout, page))
-}
-```
-
-### Render layouts with a custom `tmpl.TmplFunc`
-The default field names for the nested template data with `tmpl.Tmpl` are `.Data` and `.Child`. If you want to use different names for them you can use `tmpl.TmplFunc`.
-
-```go
-func main() {
-    tp := tmpl.New("templates").LoadWithLayouts("pages").MustParse()
-    customTmpl := tmpl.TmplFunc("Props", "ChildProps")
-
-    layout := tmpl.Map{"Title": "Homepage"}
-    page := tmpl.Map{"Username": "Johndoe"}
-    err := tp.Render(os.Stdout, customTmpl("pages/index", layout, page))
-}
-```
-> template data is now a map of "Props" and "ChildProps" you should update the template files accordingly.
-
-
-### Optionally modify data with `tmpl.Tmpl`
-
-The arguments passed to `tmpl.Data` may implement the Data method to modify the value before it is passed to the template.
-
-See example below:
-
-```go
-type Layout struct {
-    Title string
-}
-
-func (l Layout) Data() any {
-    // use fallback title if not set
-    if l.Title == "" {
-        l.Title = "Default title"
-    }
-    return l
-}
-
-type IndexPage struct {
-    Username string
-}
-
-func (p IndexPage) Template() (string, any) {
-    // NOTE: no title passed for layout
-    return tmpl.Tmpl("pages/index", Layout{}, p).Template()
-}
-
-func main() {
-    tp := tmpl.New("templates").LoadWithLayouts("pages").MustParse()
-
-    err := tp.Render(os.Stdout, IndexPage{Username: "Johndoe"})
-    // template data would be
-    // tmpl.Map{
-    //   "Data": Layout{Title: "Default title"},
-    //   "Child": IndexPage{Username: "Johndoe"},
-    // }
-}
-```
+`templates/pages/index.html` is the entry point. It  defines the `content` block and renders the layout, passing all the template data to the layout.
+`templates/pages/layout.html` receives the template data which should contain `.Data` and `.Child` fields (`.Data` is the layout data and `.Child` is the data for the child template) and renders the `content` block passing the child template data.
 
 ## Associated Templates
 
-Associated templates are named templates within a loaded template. This is useful for rendering partials defined within the template. Below is an example implementing a counter with htmx.
+Associated templates are named templates within a loaded template. This is useful for rendering partials defined within the template. Take a look at the example below:
 
 ```html
-<!-- templates/pages/counter.html -->
-{{ template "pages/layout" . }}
-
-{{ define "counter" }}
-<form hx-post="/counter" hx-swap="outerHTML">
-    <p>Count: {{ .Count }}</p>
-    <button>Increment</button>
-</form>
-{{ end }}
-
-{{ define "content" }}
+<!-- templates/pages/index.html -->
 <main>
-    <p>Counter</p>
-    {{ template "counter" .Counter }}
+    <p>Button example</p>
+    {{ template "button" .Message }}
 </main>
+
+{{ define "button" }}
+<button>{{ . }}</button>
 {{ end }}
 ```
 
 ```go
-// templates/pages/counter.go
-package pages
+// templates/pages/index.go
 
-import (
-    "github.com/eriicafes/tmpl"
-)
-
-type Counter struct {
-	Count int
+type Index struct { 
+    Message string
 }
 
-func (c Counter) AssociatedTemplate() (string, string, any) {
-    return "pages/index", "counter", c
+func (i Index) Template() (string, any) {
+    return "pages/index", i
 }
 
-type CounterPage struct {
-    Counter Counter
+type IndexButton struct {
+    Text string
 }
 
-func (p CounterPage) Template() (string, any) {
-    return tmpl.Tmpl("pages/index", nil, p).Template()
+func (b IndexButton) AssociatedTemplate() (string, string, any) {
+    return "pages/index", "button", b.Text
 }
 ```
 
 ```go
-// templates/pages/counter.go
-package pages
+// main.go
 
-import (
-    ...
-)
+func main() {
+    templates := tmpl.New(os.DirFS("templates")).LoadTree("pages").MustParse()
+    tr := templates.Renderer()
 
-var tp tmpl.Templates
+    tr.Render(os.Stdout, Index{"Click me"})
+    // outputs:
+    // <main>
+    //      <p>Button example</p>
+    //      <button>Click me</button>
+    // </main>
+    // <button>{{ . }}</button>
 
-func GetCounterPage(w http.ResponseWriter, r *http.Request) {
-    newCounter := pages.Counter{Count: 0}
-    // render full page
-    tp.Render(w, pages.CounterPage{Counter: newCounter})
+    tr.RenderAssociated(os.Stdout, IndexButton{"Click me"})
+    // outputs:
+    // <button>Click me</button>
+
+    // Or using tmpl.AssociatedTmpl helper
+    tr.RenderAssociated(os.Stdout, tmpl.AssociatedTmpl("pages/index", "button", "Press me"))
+    // outputs:
+    // <button>Press me</button>
 }
+```
 
-func PostCounterPage(w http.ResponseWriter, r *http.Request) {
-    var prevCount int = ...
-    // render page partial only
-    tp.RenderAssociated(w, pages.Counter{Count: prevCount+1})
+## Clone templates
 
-    // or if AssociatedTemplate method is not implemented for Counter
-    tp.RenderAssociated(w, tmpl.Associated(
-        "pages/index",
-        "counter",
-        Counter{Count: prevCount + 1}),
-    )
-}
+Clone templates to share similar configurations between templates.
+
+```go
+tp1 := tmpl.New(os.DirFS("templates")).SetExt("tmpl")
+// tmpl extension applies to tp1, tp2 and tp3
+
+tp2, err := tp1.Clone()
+tp2.Autoload("components/ui")
+// components/ui autoload applies only to tp2
+
+// MustClone panics on clone error
+tp3 := tp1.MustClone().Autoload("components/icons")
+// components/icons autoload applies only to tp3
 ```
 
 ## Funcs
@@ -428,19 +348,30 @@ Returns a map from successive arguments. Arguments length must be even.
 {{ template "button" map "text" "Click me!" "type" "submit" }}
 ```
 
-## Clone templates
+### stream
+Streams in templates depending on an async value.
+Streamed templates may optionally define pending and error templates as seen below.
+See more about [HTML Streaming](#html-streaming).
+```html
+<div>
+    <h1>{{ stream "lazy" .LazyData }}</h1>
+</div>
 
-Clone templates to share similar configurations between templates.
+{{ define lazy }}
+<p>Resolved: {{ . }}</p>
+{{ end }}
 
-```go
-tp1 := tmpl.New("templates").SetExt("tmpl")
-// tmpl extension applies to tp1, tp2 and tp3
+<!-- pending template is optional -->
+{{ define lazy:pending }}
+<p>Loading...</p>
+{{ end }}
 
-tp2, err := tp1.Clone()
-tp2.Autoload("components/ui")
-// components/ui autoload applies only to tp2
-
-// MustClone panics on clone error
-tp3 := tp1.MustClone().Autoload("components/icons")
-// components/icons autoload applies only to tp3
+<!-- error template is optional -->
+{{ define lazy:error }}
+<p>Failed: {{ . }}</p>
+{{ end }}
 ```
+
+## Recipes
+
+### HTML Streaming

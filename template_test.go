@@ -11,10 +11,10 @@ func TestTemplateWithSingleData(t *testing.T) {
 	expectedName := "template"
 	expectedData := 1
 	if name != expectedName {
-		t.Errorf("name: expected %s got %s\n", expectedName, name)
+		t.Errorf("name expected: %q got: %q\n", expectedName, name)
 	}
-	if !reflect.DeepEqual(data, expectedData) {
-		t.Errorf("data: expected %#v got %#v\n", expectedData, data)
+	if data != expectedData {
+		t.Errorf("data expected: %#v got: %#v\n", expectedData, data)
 	}
 }
 
@@ -30,29 +30,9 @@ func TestTemplateWithNestedData(t *testing.T) {
 		},
 	}
 	if name != expectedName {
-		t.Errorf("name: expected %s got %s\n", expectedName, name)
+		t.Errorf("name expected: %q got: %q\n", expectedName, name)
 	}
 	if !reflect.DeepEqual(data, expectedData) {
-		t.Errorf("data: expected %#v got %#v\n", expectedData, data)
-	}
-}
-
-func TestTemplateWithCustomNestedData(t *testing.T) {
-	customTmpl := TmplFunc("Props", "ChildProps")
-	tp := customTmpl("template", 1, "one", true)
-	name, data := tp.Template()
-	expectedName := "template"
-	expectedData := Map{
-		"Props": 1,
-		"ChildProps": Map{
-			"Props":      "one",
-			"ChildProps": true,
-		},
-	}
-	if name != expectedName {
-		t.Errorf("name: expected %s got %s\n", expectedName, name)
-	}
-	if !reflect.DeepEqual(data, expectedData) {
-		t.Errorf("data: expected %#v got %#v\n", expectedData, data)
+		t.Errorf("data expected: %#v got: %#v\n", expectedData, data)
 	}
 }
