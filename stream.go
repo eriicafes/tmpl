@@ -3,39 +3,23 @@ package tmpl
 import (
 	"fmt"
 	"html/template"
-	"io"
 	"net/http"
 	"strings"
 	"sync"
 )
 
-// streamTp is the shape passed to the stream channel to decide which template to render and it's data.
+// streamTp is the shape sent to the stream channel to decide which template to render and it's data.
 type streamTp struct {
 	streamData
 	name string
 	cid  int32
 }
 
-// streamData is the shape that is used to resolve an async value,
+// streamData is the shape used to resolve an async value,
 // it contains the resolved data and a bool flag to indicate success or error.
 type streamData struct {
 	ok   bool
 	data any
-}
-
-// streamCache stores resolved values from an AsyncValue.
-// It caches the channel data and closes the channel.
-// Further calls to get from the same channel will return the cached value.
-type streamCache map[<-chan streamData]streamData
-
-func (c streamCache) get(streamData chan streamData) streamData {
-	data, ok := <-streamData
-	if !ok {
-		return c[streamData]
-	}
-	c[streamData] = data
-	close(streamData)
-	return data
 }
 
 // streamController controls streams from templates resolved with an AsyncValue.
@@ -54,24 +38,30 @@ func (c *streamController) nextCID() int32 {
 	return c.cid
 }
 
-func stream(name string, v asyncValueRenderer) (template.HTML, error) {
-	if v == nil {
+func stream(name string, av asyncValueRenderer) (template.HTML, error) {
+	if av == nil {
 		return "", fmt.Errorf("AsyncValue is nil")
 	}
-	r, ch := v.renderer()
+	r := av.renderer()
 	if r == nil {
 		return "", fmt.Errorf("AsyncValue must be initialized with non-nil renderer")
 	}
-	rr := r.Unwrap()
-	if rr.stream == nil {
-		// blocks until channel data is available before rendering template.
-		// data from the same channel reference is cached.
-		return renderSync(rr, name, rr.cache.get(ch))
+	// render template with cached data if available
+	if data, cached := av.getCached(); cached {
+		return r.renderSync(name, data)
 	}
-	return renderStream(rr, name, ch)
+	if r.stream == nil {
+		// flush available html
+		if f, ok := r.w.(http.Flusher); ok {
+			f.Flush()
+		}
+		// block until channel data is available before rendering template.
+		return r.renderSync(name, av.get())
+	}
+	return r.renderStream(name, av)
 }
 
-func renderSync(r *renderer, name string, d streamData) (template.HTML, error) {
+func (r *renderer) renderSync(name string, d streamData) (template.HTML, error) {
 	html := new(strings.Builder)
 	// if not ok render error template instead
 	if !d.ok {
@@ -87,22 +77,17 @@ func renderSync(r *renderer, name string, d streamData) (template.HTML, error) {
 
 // renderStream immediately renders a pending template if channel data is not yet available,
 // and streams in resolved content as they become avalable.
-func renderStream(r *renderer, name string, ch chan streamData) (template.HTML, error) {
-	cached, ok := r.cache[ch]
-	if ok {
-		// render template with cached data
-		return renderSync(r, name, cached)
-	}
+func (r *renderer) renderStream(name string, av asyncValueRenderer) (template.HTML, error) {
 	select {
-	case d := <-ch:
-		// render template with ready channel data
-		return renderSync(r, name, d)
+	case <-av.readyChan():
+		data, _ := av.getCached()
+		return r.renderSync(name, data)
 	default:
 		cid := r.stream.nextCID()
 		r.stream.wg.Add(1)
 		// queue render by sending template data to channel when available
 		go func() {
-			r.stream.ch <- streamTp{r.cache.get(ch), name, cid}
+			r.stream.ch <- streamTp{av.get(), name, cid}
 		}()
 		// immediately render pending template or empty slot if no pending template
 		html := new(strings.Builder)
@@ -113,12 +98,12 @@ func renderStream(r *renderer, name string, ch chan streamData) (template.HTML, 
 	}
 }
 
-func awaitStream(r *renderer, w io.Writer) error {
+func (r *renderer) awaitStream() error {
 	// append swap script
-	w.Write([]byte(swapOOOSScript()))
+	r.w.Write([]byte(swapOOOSScript()))
 
 	// flush available html
-	if f, ok := w.(http.Flusher); ok {
+	if f, ok := r.w.(http.Flusher); ok {
 		f.Flush()
 	}
 
@@ -147,12 +132,12 @@ func awaitStream(r *renderer, w io.Writer) error {
 			err := r.tp.ExecuteTemplate(html, streamTp.name, streamTp.data)
 			if err != nil && !streamTp.ok {
 				// silence execute error when rendering error template
-				_, err = w.Write([]byte(resolvedHTML(streamTp.cid, "")))
+				_, err = r.w.Write([]byte(resolvedHTML(streamTp.cid, "")))
 			} else if err == nil {
-				_, err = w.Write([]byte(resolvedHTML(streamTp.cid, html.String())))
+				_, err = r.w.Write([]byte(resolvedHTML(streamTp.cid, html.String())))
 			}
 			// flush resolved html
-			if f, ok := w.(http.Flusher); ok {
+			if f, ok := r.w.(http.Flusher); ok {
 				f.Flush()
 			}
 			if err != nil {

@@ -17,19 +17,19 @@ type Renderer interface {
 
 type renderer struct {
 	t      Templates
-	cache  streamCache
 	stream *streamController
 	tp     *template.Template
+	w      io.Writer
 }
 
-// Renderer blocks on async values. It should not be used concurrently.
+// Renderer blocks on async values. Renderer is not concurrent safe.
 func (t Templates) Renderer() Renderer {
-	return &renderer{t, make(streamCache), nil, nil}
+	return &renderer{t, nil, nil, nil}
 }
 
-// StreamRenderer streams in templates with async values. It should not be used concurrently.
+// StreamRenderer streams in templates with async values. StreamRenderer is not concurrent safe.
 func (t Templates) StreamRenderer() Renderer {
-	return &renderer{t, make(streamCache), newStreamController(), nil}
+	return &renderer{t, newStreamController(), nil, nil}
 }
 
 func (r *renderer) Render(w io.Writer, tp Template) error {
@@ -38,13 +38,13 @@ func (r *renderer) Render(w io.Writer, tp Template) error {
 	if tmpl == nil {
 		tmpl = r.t["<root>"]
 	}
-	// attach template to renderer
-	r.tp = tmpl
+	// attach template and writer to renderer
+	r.tp, r.w = tmpl, w
 	err := tmpl.ExecuteTemplate(w, name, data)
 	if err != nil || r.stream == nil {
 		return err
 	}
-	return awaitStream(r, w)
+	return r.awaitStream()
 }
 
 func (r *renderer) RenderAssociated(w io.Writer, atp AssociatedTemplate) error {
@@ -53,13 +53,13 @@ func (r *renderer) RenderAssociated(w io.Writer, atp AssociatedTemplate) error {
 	if tmpl == nil {
 		tmpl = r.t["<root>"]
 	}
-	// attach template to renderer
-	r.tp = tmpl
+	// attach template and writer to renderer
+	r.tp, r.w = tmpl, w
 	err := tmpl.ExecuteTemplate(w, name, data)
 	if err != nil || r.stream == nil {
 		return err
 	}
-	return awaitStream(r, w)
+	return r.awaitStream()
 }
 
 func (r *renderer) Unwrap() *renderer {

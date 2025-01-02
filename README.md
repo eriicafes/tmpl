@@ -1,6 +1,6 @@
 # Go Tmpl
 
-### Simple and powerful go templates API with zero code generation.
+### Simple and powerful go templates with zero code generation.
 
 Tmpl makes go templates composable, easy to work with and predictable, suitable for rendering pages with layouts or rendering page partials with frameworks like [htmx.org](https://htmx.org).
 
@@ -90,6 +90,8 @@ tp := tmpl.New(os.DirFS("templates")).
 ```
 
 ## Render templates
+
+Render templates using the template renderer. Tmpl has the default renderer and stream renderer. Renderers are not concurrent safe and should not be used across separate goroutines.
 
 ### Render template with struct (recommended)
 
@@ -349,29 +351,25 @@ Returns a map from successive arguments. Arguments length must be even.
 ```
 
 ### stream
-Streams in templates depending on an async value.
+Streams in templates that depend on an async value.
 Streamed templates may optionally define pending and error templates as seen below.
-See more about [HTML Streaming](#html-streaming).
+See more about [HTML Streaming](html-streaming).
 ```html
 <div>
     <h1>{{ stream "lazy" .LazyData }}</h1>
 </div>
 
-{{ define lazy }}
+{{ define "lazy" }}
 <p>Resolved: {{ . }}</p>
 {{ end }}
 
 <!-- pending template is optional -->
-{{ define lazy:pending }}
+{{ define "lazy:pending" }}
 <p>Loading...</p>
 {{ end }}
 
 <!-- error template is optional -->
-{{ define lazy:error }}
+{{ define "lazy:error" }}
 <p>Failed: {{ . }}</p>
 {{ end }}
 ```
-
-## Recipes
-
-### HTML Streaming
