@@ -1,10 +1,6 @@
 package tmpl
 
 // AsyncValue represents data which will be available in the future or an error.
-// It is implemented using a non-buffered channel.
-//
-// When using sync rendering, calls to Ok or Err will block until the template is rendered
-// which will wait until all earlier rendered templates in the markup are resolved and rendered.
 type AsyncValue[T, E any] interface {
 	// Ok resolves an AsyncValue with the data.
 	// Ok or Err should be called exactly once.
@@ -18,27 +14,50 @@ type AsyncValue[T, E any] interface {
 }
 
 type asyncValueRenderer interface {
-	renderer() (Renderer, chan streamData)
+	renderer() *renderer
+	readyChan() chan struct{}
+	get() streamData
+	getCached() (streamData, bool)
 }
 
 // AsyncValue initializes a new AsyncValue in it's pending state.
 func NewAsyncValue[T, E any](r Renderer) AsyncValue[T, E] {
-	return &asyncValue[T, E]{r, make(chan streamData)}
+	return &asyncValue[T, E]{
+		r:  r,
+		ch: make(chan struct{}),
+	}
 }
 
 type asyncValue[T, E any] struct {
-	r  Renderer
-	ch chan streamData
+	r     Renderer
+	ch    chan struct{}
+	data  streamData
+	ready bool
 }
 
 func (a *asyncValue[T, E]) Ok(data T) {
-	a.ch <- streamData{true, data}
+	a.data, a.ready = streamData{true, data}, true
+	close(a.ch)
 }
 
 func (a *asyncValue[T, E]) Err(err E) {
-	a.ch <- streamData{false, err}
+	a.data, a.ready = streamData{false, err}, true
+	close(a.ch)
 }
 
-func (a *asyncValue[T, E]) renderer() (Renderer, chan streamData) {
-	return a.r, a.ch
+func (a *asyncValue[T, E]) renderer() *renderer {
+	return a.r.Unwrap()
+}
+
+func (a *asyncValue[T, E]) readyChan() chan struct{} {
+	return a.ch
+}
+
+func (a *asyncValue[T, E]) get() streamData {
+	<-a.ch
+	return a.data
+}
+
+func (a *asyncValue[T, E]) getCached() (streamData, bool) {
+	return a.data, a.ready
 }
