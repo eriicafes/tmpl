@@ -22,7 +22,7 @@ go get github.com/eriicafes/tmpl
 - Automatic templates loading
 - Supports template layouts
 - Pure [go templates](https://pkg.go.dev/html/template) (zero dependencies, zero code generation)
-- [HTML streaming support](#html-streaming)
+- [HTML streaming](html-streaming.md) support
 - First-party [Vite integration](vite/README.md)
 
 ## Setup
@@ -353,7 +353,7 @@ Returns a map from successive arguments. Arguments length must be even.
 ### stream
 Streams in templates that depend on an async value.
 Streamed templates may optionally define pending and error templates as seen below.
-See more about [HTML Streaming](html-streaming).
+See more about [HTML Streaming](html-streaming.md).
 ```html
 <div>
     <h1>{{ stream "lazy" .LazyData }}</h1>

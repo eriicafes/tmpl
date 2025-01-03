@@ -48,12 +48,12 @@ type Index struct {
 }
 
 func (i Index) Template() (string, any) {
-	return "index", i
+	return "pages/index", i
 }
 
 func main() {
 	templates := tmpl.New(os.DirFS("templates")).
-		LoadTree("index").
+		LoadTree("pages").
 		MustParse()
 
 	tr := templates.Renderer() // using the blocking renderer
@@ -96,12 +96,12 @@ type Index struct {
 }
 
 func (i Index) Template() (string, any) {
-	return "index", i
+	return "pages/index", i
 }
 
 func main() {
 	templates := tmpl.New(os.DirFS("templates")).
-		LoadTree("index").
+		LoadTree("pages").
 		MustParse()
 
 	tr := templates.StreamRenderer() // using the stream renderer

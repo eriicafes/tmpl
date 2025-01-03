@@ -24,10 +24,6 @@ type Config struct {
 	// Should match viteConfig.build.outDir, defaults to os.DirFS("dist").
 	Output fs.FS
 
-	// Public is the directory where static assets are placed.
-	// Should match viteConfig.publicDir, defaults to os.DirFS("public").
-	Public fs.FS
-
 	// Base is the path the vite applitcation is served from, it should start with a slash.
 	// Should match viteConfig.base, defaults to "/".
 	Base string
@@ -77,9 +73,6 @@ func New(config Config) (*Vite, error) {
 	if config.Output == nil {
 		config.Output = os.DirFS("dist")
 	}
-	if config.Public == nil {
-		config.Public = os.DirFS("public")
-	}
 	if !strings.HasPrefix(config.Base, "/") {
 		config.Base = "/" + config.Base
 	}
@@ -113,7 +106,7 @@ func (v *Vite) Funcs() template.FuncMap {
 	return template.FuncMap{
 		"vite":               v.ViteTags,
 		"vite_public":        v.PublicPath,
-		"vite_assets":        v.AssetPath,
+		"vite_asset":         v.AssetPath,
 		"vite_react_refresh": v.reactRefresh,
 	}
 }
