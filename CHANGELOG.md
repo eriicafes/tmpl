@@ -1,5 +1,12 @@
 # tmpl
 
+## 0.6.0
+
+### Minor Changes
+
+- 5a5e249: Add Vite support
+- fe20cc4: Add HTML Streaming support
+
 ## 0.5.0
 
 ### Minor Changes
