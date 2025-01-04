@@ -1,5 +1,11 @@
 # tmpl
 
+## 0.6.1
+
+### Patch Changes
+
+- ea58d68: Load names template after the last file
+
 ## 0.6.0
 
 ### Minor Changes
