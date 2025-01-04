@@ -65,28 +65,27 @@ tp := tmpl.New(os.DirFS("templates")).
 
 ## Load templates
 
-### Load tree with layouts (recommended).
+### Load individual templates.
 
-Load tree loads all templates like in a file-based router. By default the layout filename is `layout`.
+The template is named after the last file and the other files will be associated templates.
+
+```go
+tp := tmpl.New(os.DirFS("templates")).
+    Load("partials/header", "partials/footer", "pages/index").
+    MustParse()
+
+// in the above example, the loaded template is named "pages/index"
+// however "partials/header" and "partials/footer" are associated templates available within "pages/index"
+```
+
+### Load directory (recommended).
+
+Load all templates like in a file-based router. By default the layout filename is `layout`.
 
 ```go
 tp := tmpl.New(os.DirFS("templates")).
     LoadTree("pages").
     MustParse()
-```
-
-### Load single template with any associated templates.
-
-The loaded template is named after the first template filename.
-All preceeding template filenames are associated with the loaded template.
-
-```go
-tp := tmpl.New(os.DirFS("templates")).
-    Load("pages/index", "partials/header", "partials/footer").
-    MustParse()
-
-// in the above example, the loaded template is named "pages/index"
-// however "partials/header" and "partials/footer" are available within "pages/index"
 ```
 
 ## Render templates

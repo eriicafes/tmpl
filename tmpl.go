@@ -119,18 +119,15 @@ func (t *templatesParser) Autoload(dirs ...string) *templatesParser {
 	return t
 }
 
-// Load creates a new template and parses the template definitions from the named files.
-// The created template clones the root template so all autoloaded templates are available.
-//
-// The template's name will have the filepath of the first file.
-// Similarly, the remaining files will be associated templates named with their filepath.
+// Load loads a new template and parses the template definitions from the named files.
+// The template is named after the last file and the other files will be associated templates.
 //
 // If an error occurs, it will be returned when calling Parse and further calls to Load will be a noop.
 //
 // Templates file names are their filepath without the extension, this act as a namespace to avoid name collisions.
 // The file extension can be configured using SetExt, the default is "html".
 //
-// For instance, Load("a/foo", "b/foo") creates the template named "a/foo", and an associated template to "a/foo" named "b/foo" is also created.
+// For instance, Load("a/foo", "b/foo") loads the template named "b/foo" and an associated template named "a/foo".
 func (t *templatesParser) Load(files ...string) *templatesParser {
 	if t.loadErr != nil {
 		return t
@@ -138,14 +135,11 @@ func (t *templatesParser) Load(files ...string) *templatesParser {
 	if len(files) == 0 {
 		return t
 	}
-	t.loadErr = t.load(files[0], files)
+	t.loadErr = t.load(files[len(files)-1], files)
 	return t
 }
 
-// LoadTree creates all templates in a directory loading all their respective layout templates.
-//
-// If a layout root is not provided only layout files from dir and it's sub directories will be matched.
-// Use SetLayoutRoot to start walking at a higher up directory than dir if there are layouts outside of dir.
+// LoadTree loads all templates in a directory including all layout templates.
 func (t *templatesParser) LoadTree(dir string) *templatesParser {
 	if t.loadErr != nil {
 		return t
