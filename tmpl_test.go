@@ -25,22 +25,22 @@ func TestLoad(t *testing.T) {
 		template  Template
 	}{
 		{
-			templates: New(fs).LoadTree(".").MustParse(),
+			templates: New(fs).Load("test").MustParse(),
 			template:  Tmpl("test"),
 			expected:  "<p>Test html</p>",
 		},
 		{
-			templates: New(fs).SetExt("html").LoadTree(".").MustParse(),
+			templates: New(fs).SetExt("html").Load("test").MustParse(),
 			template:  Tmpl("test"),
 			expected:  "<p>Test html</p>",
 		},
 		{
-			templates: New(fs).SetExt("tmpl").LoadTree(".").MustParse(),
+			templates: New(fs).SetExt("tmpl").Load("test").MustParse(),
 			template:  Tmpl("test"),
 			expected:  "<p>Test tmpl</p>",
 		},
 		{
-			templates: New(fs).SetExt("").LoadTree(".").MustParse(),
+			templates: New(fs).SetExt("").Load("test").MustParse(),
 			template:  Tmpl("test"),
 			expected:  "<p>Test</p>",
 		},
