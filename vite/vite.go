@@ -125,7 +125,7 @@ func (v *Vite) PublicPath(path string) string {
 // During development AssetPath returns the file name as is.
 func (v *Vite) AssetPath(name string) (string, error) {
 	if v.Dev {
-		return name, nil
+		return v.devUrl(name), nil
 	}
 	chunk, ok := v.Manifest[name]
 	if !ok {
@@ -146,7 +146,7 @@ func (v *Vite) ViteTags(inputs ...string) (template.HTML, error) {
 			if err != nil {
 				return "", err
 			}
-			appendTag(tags, fmt.Sprintf(`<script type="module" src="%s"></script>`, v.devUrl(path)))
+			appendTag(tags, fmt.Sprintf(`<script type="module" src="%s"></script>`, path))
 		}
 		return template.HTML(tags.String()), nil
 	}
