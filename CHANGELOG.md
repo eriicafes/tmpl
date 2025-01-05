@@ -1,5 +1,11 @@
 # tmpl
 
+## 0.6.2
+
+### Patch Changes
+
+- a875fef: Trim funcs input string
+
 ## 0.6.1
 
 ### Patch Changes
