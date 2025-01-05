@@ -118,12 +118,14 @@ func (v *Vite) devUrl(path string) string {
 
 // PublicPath returns the absolute path for an asset in the public directory.
 func (v *Vite) PublicPath(path string) string {
+	path = strings.TrimSpace(path)
 	return strings.TrimSuffix(v.Base, "/") + "/" + strings.TrimPrefix(path, "/")
 }
 
 // AssetPath returns the absolute path for an asset in the vite entry point viteConfig.build.rollupOptions.input.
 // During development AssetPath returns the file name as is.
 func (v *Vite) AssetPath(name string) (string, error) {
+	name = strings.TrimSpace(name)
 	if v.Dev {
 		return v.devUrl(name), nil
 	}
