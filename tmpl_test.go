@@ -187,7 +187,7 @@ func TestLoadTreeWithoutLayout(t *testing.T) {
 		},
 	}
 	buf := new(bytes.Buffer)
-	templates := New(fs).LoadTree("sub").LoadTree("nosub").MustParse()
+	templates := New(fs).LoadTree(".").MustParse()
 	tr := templates.Renderer()
 	tests := []struct {
 		expected string
