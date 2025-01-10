@@ -74,7 +74,7 @@ func walkFilesWithLayout(fsys fs.FS, ext string, layoutFilename string, dir stri
 		if filename == layoutFilename {
 			layouts = append(layouts, pathWithoutExt)
 		} else if dir == "." || strings.HasPrefix(pathWithoutExt, dir) {
-			groups[pathWithoutExt] = nil
+			groups[pathWithoutExt] = []string{pathWithoutExt}
 		}
 		return err
 	})
@@ -98,7 +98,7 @@ func walkFilesWithLayout(fsys fs.FS, ext string, layoutFilename string, dir stri
 				break
 			}
 		}
-		groups[name] = append(files, name)
+		groups[name] = append(files, groups[name]...)
 	}
 	return groups
 }

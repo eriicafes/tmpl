@@ -176,3 +176,40 @@ func TestLoadTreeNested(t *testing.T) {
 		buf.Reset()
 	}
 }
+
+func TestLoadTreeWithoutLayout(t *testing.T) {
+	fs := fstest.MapFS{
+		"index.html": {
+			Data: []byte(`<p>{{ . }}</p>`),
+		},
+		"sub/index.html": {
+			Data: []byte(`<p>{{ . }}</p>`),
+		},
+	}
+	buf := new(bytes.Buffer)
+	templates := New(fs).LoadTree("sub").LoadTree("nosub").MustParse()
+	tr := templates.Renderer()
+	tests := []struct {
+		expected string
+		template Template
+	}{
+		{
+			template: Tmpl("index", 1),
+			expected: "<p>1</p>",
+		},
+		{
+			template: Tmpl("sub/index", 2),
+			expected: "<p>2</p>",
+		},
+	}
+	for _, test := range tests {
+		err := tr.Render(buf, test.template)
+		if err != nil {
+			t.Error(err)
+		}
+		if buf.String() != test.expected {
+			t.Errorf("expected: %q, got: %q", test.expected, buf.String())
+		}
+		buf.Reset()
+	}
+}
