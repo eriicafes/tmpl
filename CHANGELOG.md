@@ -1,5 +1,11 @@
 # tmpl
 
+## 0.6.3
+
+### Patch Changes
+
+- b9dc768: Fix LoadTree skipping pages when there are no layouts
+
 ## 0.6.2
 
 ### Patch Changes
