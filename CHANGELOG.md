@@ -1,5 +1,13 @@
 # tmpl
 
+## 0.6.4
+
+### Patch Changes
+
+- bbf0801: Revert trimming func input string
+- bbf0801: Add vite_dev template func
+- 8a470a3: Allow using default sync renderer without explicitly creating a renderer
+
 ## 0.6.3
 
 ### Patch Changes
