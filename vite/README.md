@@ -168,8 +168,7 @@ If you are using React with `@vitejs/plugin-react`, you'll need to add this befo
 ```html
 <!doctype html>
 <html lang="en">
-  <head>...</head>
-  <body>
+  <head>
     <!-- executing this -->
     {{ vite_react_refresh }}
 
@@ -183,7 +182,48 @@ If you are using React with `@vitejs/plugin-react`, you'll need to add this befo
     </script>
 
     <!-- returns nothing in production -->
+  </head>
+</html>
+```
+
+#### vite_dev
+
+vite_dev indicates vite is running in developement mode.
+
+### Preventing FOUC (Flash of Unstyled Content) during development.
+
+During development if a stylesheet is referenced in JS via an import,
+vite will inline the CSS in a style tag. This may cause FOUC during development only.
+There are two ways to work around this:
+
+- Explicitly link the stylesheet and don't import
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    {{ vite "src/main.ts" }}
+    <link rel="stylesheet" href="{{ vite_asset "src/main.css" }}">
+  </head>
+  <body>
+    ...
   </body>
+</html>
+```
+
+- Hide HTML content until JS is ready (may result in blank white screen while loading)
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    {{ if vite_dev }}
+    <script type="module">document.body.style.removeProperty("display")</script>
+    {{ end }}
+  </head>
+  <body {{if vite_dev}} style="display:none" {{end}}>
+    ...
+  </body >
 </html>
 ```
 
