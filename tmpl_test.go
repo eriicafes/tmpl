@@ -46,8 +46,7 @@ func TestLoad(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		tr := test.templates.Renderer()
-		err := tr.Render(buf, test.template)
+		err := test.templates.Render(buf, test.template)
 		if err != nil {
 			t.Error(err)
 		}
@@ -81,7 +80,6 @@ func TestLoadTree(t *testing.T) {
 	}
 	buf := new(bytes.Buffer)
 	templates := New(fs).LoadTree(".").MustParse()
-	tr := templates.Renderer()
 	tests := []struct {
 		expected string
 		template Template
@@ -96,7 +94,7 @@ func TestLoadTree(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		err := tr.Render(buf, test.template)
+		err := templates.Render(buf, test.template)
 		if err != nil {
 			t.Error(err)
 		}
@@ -138,7 +136,6 @@ func TestLoadTreeNested(t *testing.T) {
 	}
 	buf := new(bytes.Buffer)
 	templates := New(fs).LoadTree("sub").LoadTree("nosub").MustParse()
-	tr := templates.Renderer()
 	tests := []struct {
 		expected    string
 		template    Template
@@ -159,7 +156,7 @@ func TestLoadTreeNested(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		err := tr.Render(buf, test.template)
+		err := templates.Render(buf, test.template)
 		if test.shouldError {
 			if err == nil {
 				name, _ := test.template.Template()
@@ -188,7 +185,6 @@ func TestLoadTreeWithoutLayout(t *testing.T) {
 	}
 	buf := new(bytes.Buffer)
 	templates := New(fs).LoadTree(".").MustParse()
-	tr := templates.Renderer()
 	tests := []struct {
 		expected string
 		template Template
@@ -203,7 +199,7 @@ func TestLoadTreeWithoutLayout(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		err := tr.Render(buf, test.template)
+		err := templates.Render(buf, test.template)
 		if err != nil {
 			t.Error(err)
 		}

@@ -11,8 +11,6 @@ type Renderer interface {
 	Render(w io.Writer, tp Template) error
 	// RenderAssociated executes the associated template for the Template tp and writes the output to w.
 	RenderAssociated(w io.Writer, atp AssociatedTemplate) error
-	// Unwrap returns the underlying renderer.
-	Unwrap() *renderer
 }
 
 type renderer struct {
@@ -22,8 +20,20 @@ type renderer struct {
 	w      io.Writer
 }
 
-// Renderer blocks on async values. Renderer is not concurrent safe.
-func (t Templates) Renderer() Renderer {
+// Render executes the Template tp and writes the output to w.
+// Render uses a SyncRenderer.
+func (t Templates) Render(w io.Writer, tp Template) error {
+	return t.SyncRenderer().Render(w, tp)
+}
+
+// RenderAssociated executes the associated template for the Template tp and writes the output to w.
+// RenderAssociated uses a SyncRenderer.
+func (t Templates) RenderAssociated(w io.Writer, atp AssociatedTemplate) error {
+	return t.SyncRenderer().RenderAssociated(w, atp)
+}
+
+// SyncRenderer blocks on async values. SyncRenderer is not concurrent safe.
+func (t Templates) SyncRenderer() Renderer {
 	return &renderer{t, nil, nil, nil}
 }
 
@@ -62,6 +72,17 @@ func (r *renderer) RenderAssociated(w io.Writer, atp AssociatedTemplate) error {
 	return r.awaitStream()
 }
 
-func (r *renderer) Unwrap() *renderer {
+func (r *renderer) Unwrap() Renderer {
 	return r
+}
+
+func getRenderer(r Renderer) *renderer {
+	switch rr := r.(type) {
+	case *renderer:
+		return rr
+	case interface{ Unwrap() Renderer }:
+		return getRenderer(rr.Unwrap())
+	default:
+		return nil
+	}
 }

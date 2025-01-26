@@ -79,7 +79,7 @@ func (r *renderer) renderSync(name string, d streamData) (template.HTML, error) 
 // and streams in resolved content as they become avalable.
 func (r *renderer) renderStream(name string, av asyncValueRenderer) (template.HTML, error) {
 	select {
-	case <-av.readyChan():
+	case <-av.doneChan():
 		data, _ := av.getCached()
 		return r.renderSync(name, data)
 	default:

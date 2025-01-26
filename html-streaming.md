@@ -28,9 +28,9 @@ Tmpl supports HTML streaming by writing html response as they become available. 
 {{ end }} 
 ```
 
-### Default Renderer (Blocking)
+### Sync Renderer (Blocking)
 
-When the default renderer encounters an async value it flushes the written html and blocks until the async value resolves.
+When the sync renderer encounters an async value it flushes the written html and blocks until the async value resolves.
 
 ```go
 package main
@@ -56,7 +56,7 @@ func main() {
 		LoadTree("pages").
 		MustParse()
 
-	tr := templates.Renderer() // using the blocking renderer
+	tr := templates.SyncRenderer() // using the sync renderer
 	page := Index{
 		LazyData: tmpl.NewAsyncValue[string, error](tr),
 	}

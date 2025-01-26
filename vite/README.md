@@ -32,9 +32,7 @@ func main() {
 		MustParse()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tr := templates.Renderer()
-
-		err := tr.Render(w, tmpl.Tmpl("pages/index"))
+		err := templates.Render(w, tmpl.Tmpl("pages/index"))
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -218,9 +216,7 @@ func main() {
 		MustParse()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tr := templates.Renderer()
-
-		err := tr.Render(w, tmpl.Tmpl("pages/index"))
+		err := templates.Render(w, tmpl.Tmpl("pages/index"))
 		if err != nil {
 			fmt.Println(err)
 		}
