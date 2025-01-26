@@ -14,50 +14,49 @@ type AsyncValue[T, E any] interface {
 }
 
 type asyncValueRenderer interface {
-	renderer() *renderer
-	readyChan() chan struct{}
 	get() streamData
 	getCached() (streamData, bool)
+	doneChan() chan struct{}
+	renderer() *renderer
 }
 
 // AsyncValue initializes a new AsyncValue in it's pending state.
 func NewAsyncValue[T, E any](r Renderer) AsyncValue[T, E] {
-	return &asyncValue[T, E]{
-		r:  r,
-		ch: make(chan struct{}),
-	}
+	return &asyncValue[T, E]{r: r, done: make(chan struct{})}
 }
 
 type asyncValue[T, E any] struct {
 	r     Renderer
-	ch    chan struct{}
+	done  chan struct{}
 	data  streamData
-	ready bool
+	isset bool
 }
 
+// Ok sets the stream data to a success value and closes the channel.
+// isset indicates the stream data has been set and is not the default value.
 func (a *asyncValue[T, E]) Ok(data T) {
-	a.data, a.ready = streamData{true, data}, true
-	close(a.ch)
+	a.data, a.isset = streamData{true, data}, true
+	close(a.done)
 }
 
+// Err sets the stream data to an error value and closes the channel.
+// isset indicates the stream data has been set and is not the default value.
 func (a *asyncValue[T, E]) Err(err E) {
-	a.data, a.ready = streamData{false, err}, true
-	close(a.ch)
+	a.data, a.isset = streamData{false, err}, true
+	close(a.done)
 }
 
-func (a *asyncValue[T, E]) renderer() *renderer {
-	return a.r.Unwrap()
-}
-
-func (a *asyncValue[T, E]) readyChan() chan struct{} {
-	return a.ch
-}
-
+// get returns the stream data, blocking until the done channel is closed.
 func (a *asyncValue[T, E]) get() streamData {
-	<-a.ch
+	<-a.done
 	return a.data
 }
 
-func (a *asyncValue[T, E]) getCached() (streamData, bool) {
-	return a.data, a.ready
-}
+// getCached returns the stream data and a boolean indicating the stream data has been set.
+func (a *asyncValue[T, E]) getCached() (streamData, bool) { return a.data, a.isset }
+
+// doneChan returns a done channel that will be closed once the stream data is set.
+func (a *asyncValue[T, E]) doneChan() chan struct{} { return a.done }
+
+// renderer returns the underlying renderer.
+func (a *asyncValue[T, E]) renderer() *renderer { return getRenderer(a.r) }

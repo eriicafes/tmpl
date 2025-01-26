@@ -90,7 +90,7 @@ tp := tmpl.New(os.DirFS("templates")).
 
 ## Render templates
 
-Render templates using the template renderer. Tmpl has the default renderer and stream renderer. Renderers are not concurrent safe and should not be used across separate goroutines.
+Tmpl has a default sync renderer and stream renderer. Renderers are not concurrent safe and should not be used across separate goroutines.
 
 ### Render template with struct (recommended)
 
@@ -109,9 +109,8 @@ func (h Home) Template() (string, any) {
 
 func main() {
     templates := tmpl.New(os.DirFS("templates")).LoadTree("pages").MustParse()
-    tr := templates.Renderer()
 
-    err := tr.Render(os.Stdout, Home{"Homepage"})
+    err := templates.Render(os.Stdout, Home{"Homepage"})
 }
 ```
 
@@ -124,9 +123,8 @@ func main() {
 ```go
 func main() {
     templates := tmpl.New(os.DirFS("templates")).LoadTree("pages").MustParse()
-    tr := templates.Renderer()
 
-    err := tr.Render(os.Stdout, tmpl.Tmpl("pages/home", tmpl.Map{
+    err := templates.Render(os.Stdout, tmpl.Tmpl("pages/home", tmpl.Map{
         "Title": "Homepage 2",
     }))
 }
@@ -172,7 +170,6 @@ func (h Home) Template() (string, any) {
 
 func main() {
     templates := tmpl.New(os.DirFS("templates")).LoadTree("pages").MustParse()
-    tr := templates.Renderer()
 
     err := tr.Render(os.Stdout, Home{Layout{"Homepage"}, "Johndoe"})
 }
@@ -291,9 +288,8 @@ func (b IndexButton) AssociatedTemplate() (string, string, any) {
 
 func main() {
     templates := tmpl.New(os.DirFS("templates")).LoadTree("pages").MustParse()
-    tr := templates.Renderer()
 
-    tr.Render(os.Stdout, Index{"Click me"})
+    templates.Render(os.Stdout, Index{"Click me"})
     // outputs:
     // <main>
     //      <p>Button example</p>
@@ -301,12 +297,12 @@ func main() {
     // </main>
     // <button>{{ . }}</button>
 
-    tr.RenderAssociated(os.Stdout, IndexButton{"Click me"})
+    templates.RenderAssociated(os.Stdout, IndexButton{"Click me"})
     // outputs:
     // <button>Click me</button>
 
     // Or using tmpl.AssociatedTmpl helper
-    tr.RenderAssociated(os.Stdout, tmpl.AssociatedTmpl("pages/index", "button", "Press me"))
+    templates.RenderAssociated(os.Stdout, tmpl.AssociatedTmpl("pages/index", "button", "Press me"))
     // outputs:
     // <button>Press me</button>
 }
