@@ -21,12 +21,13 @@ type templatesParser struct {
 
 // New initializes a new templates parser from any fs.FS.
 func New(fsys fs.FS) *templatesParser {
+	root := template.New("<root>")
 	return &templatesParser{
 		fsys:           fsys,
 		ext:            "html",
 		layoutFilename: "layout",
 		templates: Templates{
-			"<root>": template.New("<root>").Funcs(funcMap),
+			"<root>": root.Funcs(funcMap).Funcs(contextFuncMap(root)),
 		},
 	}
 }
@@ -39,11 +40,12 @@ func New(fsys fs.FS) *templatesParser {
 // Clone returns an error if cloning any of the templates returns an error.
 func (t *templatesParser) Clone() (*templatesParser, error) {
 	templates := make(Templates, len(t.templates))
-	var err error
 	for k, v := range t.templates {
-		if templates[k], err = v.Clone(); err != nil {
+		clone, err := v.Clone()
+		if err != nil {
 			return nil, err
 		}
+		templates[k] = clone.Funcs(contextFuncMap(clone))
 	}
 	return &templatesParser{
 		fsys:           t.fsys,
@@ -122,6 +124,9 @@ func (t *templatesParser) Autoload(dirs ...string) *templatesParser {
 // Load loads a new template and parses the template definitions from the named files.
 // The template is named after the last file and the other files will be associated templates.
 //
+// Template definitions in a file overrides template definitions in files to it's left
+// hence the returned template is named after the rightmost file.
+//
 // If an error occurs, it will be returned when calling Parse and further calls to Load will be a noop.
 //
 // Templates file names are their filepath without the extension, this act as a namespace to avoid name collisions.
@@ -163,6 +168,7 @@ func (t *templatesParser) load(name string, files []string) error {
 	if err != nil {
 		return err
 	}
+	tmpl.Funcs(contextFuncMap(tmpl))
 	if t.onLoadFn != nil {
 		t.onLoadFn(name, tmpl)
 	}
