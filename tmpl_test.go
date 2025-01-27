@@ -21,8 +21,8 @@ func TestLoad(t *testing.T) {
 	buf := new(bytes.Buffer)
 	tests := []struct {
 		templates Templates
-		expected  string
 		template  Template
+		expected  string
 	}{
 		{
 			templates: New(fs).Load("test").MustParse(),
@@ -81,8 +81,8 @@ func TestLoadTree(t *testing.T) {
 	buf := new(bytes.Buffer)
 	templates := New(fs).LoadTree(".").MustParse()
 	tests := []struct {
-		expected string
 		template Template
+		expected string
 	}{
 		{
 			template: Tmpl("index", 1, 2),
@@ -137,8 +137,8 @@ func TestLoadTreeNested(t *testing.T) {
 	buf := new(bytes.Buffer)
 	templates := New(fs).LoadTree("sub").LoadTree("nosub").MustParse()
 	tests := []struct {
-		expected    string
 		template    Template
+		expected    string
 		shouldError bool
 	}{
 		{
@@ -186,8 +186,8 @@ func TestLoadTreeWithoutLayout(t *testing.T) {
 	buf := new(bytes.Buffer)
 	templates := New(fs).LoadTree(".").MustParse()
 	tests := []struct {
-		expected string
 		template Template
+		expected string
 	}{
 		{
 			template: Tmpl("index", 1),

@@ -10,14 +10,14 @@ type AsyncValue[T, E any] interface {
 	// Ok or Err should be called exactly once.
 	Err(err E)
 
-	asyncValueRenderer
+	asyncValuer
 }
 
-type asyncValueRenderer interface {
+type asyncValuer interface {
 	get() streamData
 	getCached() (streamData, bool)
 	doneChan() chan struct{}
-	renderer() *renderer
+	renderer() Renderer
 }
 
 // AsyncValue initializes a new AsyncValue in it's pending state.
@@ -59,4 +59,4 @@ func (a *asyncValue[T, E]) getCached() (streamData, bool) { return a.data, a.iss
 func (a *asyncValue[T, E]) doneChan() chan struct{} { return a.done }
 
 // renderer returns the underlying renderer.
-func (a *asyncValue[T, E]) renderer() *renderer { return getRenderer(a.r) }
+func (a *asyncValue[T, E]) renderer() Renderer { return a.r }

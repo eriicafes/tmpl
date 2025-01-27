@@ -106,7 +106,7 @@ func TestClsx(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		output, err := clsx(test.input...)
+		output, err := clsxFunc(test.input...)
 		if err != nil {
 			if err.Error() != test.err {
 				t.Errorf("expected err: %q got: %q", test.err, err)

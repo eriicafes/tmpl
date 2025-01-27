@@ -6,9 +6,13 @@ import (
 )
 
 var funcMap = template.FuncMap{
-	"map":    mapFunc,
-	"clsx":   clsx,
-	"stream": stream,
+	"lazy": lazyFunc,
+	"map":  mapFunc,
+	"clsx": clsxFunc,
+}
+
+func lazyFunc(name string, data any) tp {
+	return tp{name, data}
 }
 
 func mapFunc(v ...any) (map[string]any, error) {
@@ -27,7 +31,7 @@ func mapFunc(v ...any) (map[string]any, error) {
 	return m, nil
 }
 
-func clsx(values ...any) (string, error) {
+func clsxFunc(values ...any) (string, error) {
 	var result string
 	var matching, cond bool
 	appendStr := func(s string) {

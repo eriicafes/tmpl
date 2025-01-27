@@ -356,6 +356,56 @@ Composes HTML class from successive arguments.
 <div class="{{ $class }}">...</div>
 ```
 
+### lazy & slot
+Go Templates does not have a clear way of using slots so you have to rely on
+overriding associated template definitions which has several pitfalls.
+
+Use lazy to create a Template that can be used as slotted content.
+
+ `lazy [template name] [template data]`
+
+Use slot to execute slotted content. Slotted content can be a Template or string.
+string content will be escaped.
+
+`slot [slotted content]`.
+
+```html
+<!-- button.html -->
+<button class="{{ .class }}">
+    {{ slot .children }}
+</button>
+
+<!-- select.html -->
+<select name="{{ .name }}">
+    {{ slot .children }}
+</select>
+
+<!-- index.html -->
+<html>
+    <head>...</head>
+    <body>
+        <form>
+            <input name="message" type="text" placeholder="Your message" />
+
+            {{ template "select" map
+                "name" "subject"
+                "children" lazy "subject-options" .Options
+            }}
+            {{ define "subject-options" }}
+                {{ range . }}
+                <option>{{ . }}</option>
+                {{ end }}
+            {{ end }}
+
+            {{ template "button" map
+                "class" "px-4 py-2 rounded-md bg-black text-white"
+                "children" "Submit form"
+            }}
+        </form>
+    </body>
+</html>
+```
+
 ### stream
 Streams in templates that depend on an async value.
 Streamed templates may optionally define pending and error templates as seen below.

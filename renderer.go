@@ -1,75 +1,73 @@
 package tmpl
 
 import (
-	"html/template"
 	"io"
 )
 
 // Renderer executes templates.
 type Renderer interface {
-	// Render executes the Template tp and writes the output to w.
+	// Render executes the template tp and writes the output to w.
 	Render(w io.Writer, tp Template) error
-	// RenderAssociated executes the associated template for the Template tp and writes the output to w.
+	// RenderAssociated executes the associated template atp and writes the output to w.
 	RenderAssociated(w io.Writer, atp AssociatedTemplate) error
-}
-
-type renderer struct {
-	t      Templates
-	stream *streamController
-	tp     *template.Template
-	w      io.Writer
-}
-
-// Render executes the Template tp and writes the output to w.
-// Render uses a SyncRenderer.
-func (t Templates) Render(w io.Writer, tp Template) error {
-	return t.SyncRenderer().Render(w, tp)
-}
-
-// RenderAssociated executes the associated template for the Template tp and writes the output to w.
-// RenderAssociated uses a SyncRenderer.
-func (t Templates) RenderAssociated(w io.Writer, atp AssociatedTemplate) error {
-	return t.SyncRenderer().RenderAssociated(w, atp)
 }
 
 // SyncRenderer blocks on async values. SyncRenderer is not concurrent safe.
 func (t Templates) SyncRenderer() Renderer {
-	return &renderer{t, nil, nil, nil}
+	return &renderer{Templates: t}
 }
 
 // StreamRenderer streams in templates with async values. StreamRenderer is not concurrent safe.
 func (t Templates) StreamRenderer() Renderer {
-	return &renderer{t, newStreamController(), nil, nil}
+	return &renderer{Templates: t, stream: newStreamController()}
+}
+
+type renderer struct {
+	Templates
+	w      io.Writer
+	stream *streamController
+}
+
+// Render executes the template tp and writes the output to w.
+// Render uses a SyncRenderer and blocks on async values.
+func (t Templates) Render(w io.Writer, tp Template) error {
+	return t.SyncRenderer().Render(w, tp)
+}
+
+// RenderAssociated executes the associated template for the template tp and writes the output to w.
+// RenderAssociated uses a SyncRenderer and blocks on async values.
+func (t Templates) RenderAssociated(w io.Writer, atp AssociatedTemplate) error {
+	return t.SyncRenderer().RenderAssociated(w, atp)
 }
 
 func (r *renderer) Render(w io.Writer, tp Template) error {
 	name, data := tp.Template()
-	tmpl := r.t[name]
-	if tmpl == nil {
-		tmpl = r.t["<root>"]
+	t := r.Templates[name]
+	if t == nil {
+		t = r.Templates["<root>"]
 	}
-	// attach template and writer to renderer
-	r.tp, r.w = tmpl, w
-	err := tmpl.ExecuteTemplate(w, name, data)
+	// attach writer to renderer
+	r.w = w
+	err := t.ExecuteTemplate(w, name, data)
 	if err != nil || r.stream == nil {
 		return err
 	}
-	return r.awaitStream()
+	return awaitStream(w, t, r.stream)
 }
 
 func (r *renderer) RenderAssociated(w io.Writer, atp AssociatedTemplate) error {
 	tname, name, data := atp.AssociatedTemplate()
-	tmpl := r.t[tname]
-	if tmpl == nil {
-		tmpl = r.t["<root>"]
+	t := r.Templates[tname]
+	if t == nil {
+		t = r.Templates["<root>"]
 	}
-	// attach template and writer to renderer
-	r.tp, r.w = tmpl, w
-	err := tmpl.ExecuteTemplate(w, name, data)
+	// attach writer to renderer
+	r.w = w
+	err := t.ExecuteTemplate(w, name, data)
 	if err != nil || r.stream == nil {
 		return err
 	}
-	return r.awaitStream()
+	return awaitStream(w, t, r.stream)
 }
 
 func (r *renderer) Unwrap() Renderer {
