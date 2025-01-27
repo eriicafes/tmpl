@@ -1,5 +1,15 @@
 # tmpl
 
+## 0.8.0
+
+### Minor Changes
+
+- c2dec08: Add lazy & slot template funcs for slotted content support
+
+### Patch Changes
+
+- c2dec08: Pass reference to the executing template to context template funcs
+
 ## 0.7.0
 
 ### Minor Changes
