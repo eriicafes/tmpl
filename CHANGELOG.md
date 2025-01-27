@@ -1,5 +1,11 @@
 # tmpl
 
+## 0.7.0
+
+### Minor Changes
+
+- 9d88623: Add clsx template func
+
 ## 0.6.4
 
 ### Patch Changes
