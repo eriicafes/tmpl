@@ -345,6 +345,17 @@ Returns a map from successive arguments. Arguments length must be even.
 {{ template "button" map "text" "Click me!" "type" "submit" }}
 ```
 
+### clsx
+Composes HTML class from successive arguments.
+```html
+{{ $class := clsx "flex gap-1 border p-3 rounded-lg"
+    (eq .variant "error") "bg-red-100 text-red-500"
+    (eq .variant "success") "bg-teal-100 text-teal-600"
+    .class
+}}
+<div class="{{ $class }}">...</div>
+```
+
 ### stream
 Streams in templates that depend on an async value.
 Streamed templates may optionally define pending and error templates as seen below.
