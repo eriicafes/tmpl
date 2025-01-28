@@ -90,7 +90,7 @@ tp := tmpl.New(os.DirFS("templates")).
 
 ## Render templates
 
-Tmpl has a default sync renderer and stream renderer. Renderers are not concurrent safe and should not be used across separate goroutines.
+Tmpl has a default sync renderer and a [stream renderer](html-streaming.md). Renderers are not concurrent safe.
 
 ### Render template with struct (recommended)
 
@@ -356,15 +356,15 @@ Composes HTML class from successive arguments.
 <div class="{{ $class }}">...</div>
 ```
 
-### lazy & slot
+### tmpl & slot
 Go Templates does not have a clear way of using slots so you have to rely on
 overriding associated template definitions which has several pitfalls.
 
-Use lazy to create a Template that can be used as slotted content.
+Use `tmpl` to create a [tmpl.Template](#render-templates) that can be used as slotted content.
 
- `lazy [template name] [template data]`
+ `tmpl [template name] [template data]`
 
-Use slot to execute slotted content. Slotted content can be a Template or string.
+Use `slot` to execute slotted content. Slotted content can be a `tmpl.Template` or string.
 string content will be escaped.
 
 `slot [slotted content]`.
@@ -389,7 +389,7 @@ string content will be escaped.
 
             {{ template "select" map
                 "name" "subject"
-                "children" lazy "subject-options" .Options
+                "children" (tmpl "subject-options" .Options) // template slot
             }}
             {{ define "subject-options" }}
                 {{ range . }}
@@ -399,7 +399,7 @@ string content will be escaped.
 
             {{ template "button" map
                 "class" "px-4 py-2 rounded-md bg-black text-white"
-                "children" "Submit form"
+                "children" "Submit form" // string slot
             }}
         </form>
     </body>

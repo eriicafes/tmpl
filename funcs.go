@@ -6,12 +6,12 @@ import (
 )
 
 var funcMap = template.FuncMap{
-	"lazy": lazyFunc,
+	"tmpl": tmplFunc,
 	"map":  mapFunc,
 	"clsx": clsxFunc,
 }
 
-func lazyFunc(name string, data any) tp {
+func tmplFunc(name string, data any) Template {
 	return tp{name, data}
 }
 

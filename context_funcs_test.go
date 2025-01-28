@@ -13,7 +13,7 @@ func TestSlot(t *testing.T) {
 			{{- template "partials/button" map
 				"disabled" (gt . 100)
 				"invalid" (lt . 0)
-				"children" (lazy "content" .)
+				"children" (tmpl "content" .)
 				"errorChildren" "<span>Invalid count</span>"
 			-}}
 			{{- define "content" }}<span>Count: {{ . }}</span>{{ end -}}
