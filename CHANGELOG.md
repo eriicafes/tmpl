@@ -1,5 +1,13 @@
 # tmpl
 
+## 0.10.0
+
+### Minor Changes
+
+- bb3c432: Drop RenderAssociated and AssociatedTemplate in favour of unified Tmpl function
+- bb3c432: Change Template interface to return single value
+- bb3c432: Simplify templates layout structure using slots
+
 ## 0.9.0
 
 ### Minor Changes
