@@ -5,9 +5,50 @@ import (
 	"io/fs"
 )
 
-// Templates is a map[string]*template.Template holding all loaded templates.
+// Template is implemented by any value that has a Tmpl method which returns a template definition.
+// Construct a new template definition using Tmpl.
+type Template interface {
+	Tmpl() Template
+}
+
+// tmpl represents a template definition.
+type tmpl struct {
+	base string
+	name string
+	data any
+}
+
+func (t tmpl) Tmpl() Template { return t }
+
+// Tmpl returns a new Template with name and data.
+func Tmpl(name string, data any) Template {
+	return tmpl{name, name, data}
+}
+
+// Associated returns a new Template with name and data in the base template.
+func Associated(base string, name string, data any) Template {
+	return tmpl{base, name, data}
+}
+
+// Layout returns a new Template based on tp with the base template set to that of children.
+func Layout(name string, data any, children Template) Template {
+	tpl := children.Tmpl().(tmpl)
+	return tmpl{tpl.base, name, data}
+}
+
+type Map map[string]any
+
+// Templates stores all loaded templates.
 //
-// If a template is not explicitly loaded by name, it is executed from the autoload template.
+// When rendering a Template, the template name is used to index this map
+// and the returned template is executed with the template name and data.
+//
+// Use Base to set the base template name that will be used to index the map.
+// This is useful for rendering associated templates.
+// When rendering layout templates use Layout as a convenience for setting the base template.
+//
+// If a template name does not exist in the map, it is executed using the root template.
+// This is useful for rendering autoloaded templates.
 type Templates map[string]*template.Template
 
 type templatesParser struct {

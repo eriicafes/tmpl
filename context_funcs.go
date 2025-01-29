@@ -19,9 +19,9 @@ func slotFunc(t *template.Template) any {
 			return str, nil
 		}
 		if tp, ok := data.(Template); ok {
-			name, data := tp.Template()
+			tpl := tp.Tmpl().(tmpl)
 			var buf bytes.Buffer
-			err := t.ExecuteTemplate(&buf, name, data)
+			err := t.ExecuteTemplate(&buf, tpl.name, tpl.data)
 			return template.HTML(buf.String()), err
 		}
 		return nil, fmt.Errorf("expected a valid slotted content got %T", data)

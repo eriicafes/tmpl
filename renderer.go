@@ -8,8 +8,6 @@ import (
 type Renderer interface {
 	// Render executes the template tp and writes the output to w.
 	Render(w io.Writer, tp Template) error
-	// RenderAssociated executes the associated template atp and writes the output to w.
-	RenderAssociated(w io.Writer, atp AssociatedTemplate) error
 }
 
 // SyncRenderer blocks on async values. SyncRenderer is not concurrent safe.
@@ -34,36 +32,15 @@ func (t Templates) Render(w io.Writer, tp Template) error {
 	return t.SyncRenderer().Render(w, tp)
 }
 
-// RenderAssociated executes the associated template for the template tp and writes the output to w.
-// RenderAssociated uses a SyncRenderer and blocks on async values.
-func (t Templates) RenderAssociated(w io.Writer, atp AssociatedTemplate) error {
-	return t.SyncRenderer().RenderAssociated(w, atp)
-}
-
 func (r *renderer) Render(w io.Writer, tp Template) error {
-	name, data := tp.Template()
-	t := r.Templates[name]
+	tpl := tp.Tmpl().(tmpl)
+	t := r.Templates[tpl.base]
 	if t == nil {
 		t = r.Templates["<root>"]
 	}
 	// attach writer to renderer
 	r.w = w
-	err := t.ExecuteTemplate(w, name, data)
-	if err != nil || r.stream == nil {
-		return err
-	}
-	return awaitStream(w, t, r.stream)
-}
-
-func (r *renderer) RenderAssociated(w io.Writer, atp AssociatedTemplate) error {
-	tname, name, data := atp.AssociatedTemplate()
-	t := r.Templates[tname]
-	if t == nil {
-		t = r.Templates["<root>"]
-	}
-	// attach writer to renderer
-	r.w = w
-	err := t.ExecuteTemplate(w, name, data)
+	err := t.ExecuteTemplate(w, tpl.name, tpl.data)
 	if err != nil || r.stream == nil {
 		return err
 	}
