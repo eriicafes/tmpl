@@ -6,13 +6,9 @@ import (
 )
 
 var funcMap = template.FuncMap{
-	"tmpl": tmplFunc,
+	"tmpl": Tmpl,
 	"map":  mapFunc,
 	"clsx": clsxFunc,
-}
-
-func tmplFunc(name string, data any) Template {
-	return tp{name, data}
 }
 
 func mapFunc(v ...any) (map[string]any, error) {

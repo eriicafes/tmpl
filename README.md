@@ -4,7 +4,7 @@
 
 Tmpl makes go templates composable, easy to work with and predictable, suitable for rendering pages with layouts or rendering page partials with frameworks like [htmx.org](https://htmx.org).
 
-Tmpl only organizes the way you load [go templates](https://pkg.go.dev/html/template).
+Tmpl organizes the way load [go templates](https://pkg.go.dev/html/template) and provides some essential template funcs and patterns.
 
 Tmpl provides first-party support for [Vite](https://vite.dev).
 See [Vite integration](vite/README.md) section.
@@ -18,9 +18,8 @@ go get github.com/eriicafes/tmpl
 ## Features
 
 - Render templates with structs
-- Colocate template and template data
 - Automatic templates loading
-- Supports template layouts
+- Supports template [layouts](#layouts) and [slots](#tmpl--slot)
 - Pure [go templates](https://pkg.go.dev/html/template) (zero dependencies, zero code generation)
 - [HTML streaming](html-streaming.md) support
 - First-party [Vite integration](vite/README.md)
@@ -42,7 +41,8 @@ tp := tmpl.New(fs).MustParse()
 ### Configure templates (optional)
 
 ```go
-tp := tmpl.New(os.DirFS("templates")).
+fs := os.DirFS("templates")
+tp := tmpl.New(fs).
     SetExt("tmpl"). // default is "html"
     SetLayoutFilename("_layout"). // default is "layout"
     Funcs(funcMaps...). // register template funcs here
@@ -53,16 +53,6 @@ tp := tmpl.New(os.DirFS("templates")).
     MustParse()
 ```
 
-## Autoload templates
-
-Autoloaded templates are available in all loaded templates.
-
-```go
-tp := tmpl.New(os.DirFS("templates")).
-    Autoload("components").
-    MustParse()
-```
-
 ## Load templates
 
 ### Load individual templates.
@@ -70,7 +60,8 @@ tp := tmpl.New(os.DirFS("templates")).
 The template is named after the last file and the other files will be associated templates.
 
 ```go
-tp := tmpl.New(os.DirFS("templates")).
+fs := os.DirFS("templates")
+tp := tmpl.New(fs).
     Load("partials/header", "partials/footer", "pages/index").
     MustParse()
 
@@ -80,176 +71,68 @@ tp := tmpl.New(os.DirFS("templates")).
 
 ### Load directory (recommended).
 
-Load all templates like in a file-based router. By default the layout filename is `layout`.
+Load all templates like in a file-based router. By default the layout filename for each path segment is `layout`.
 
 ```go
-tp := tmpl.New(os.DirFS("templates")).
+fs := os.DirFS("templates")
+tp := tmpl.New(fs).
     LoadTree("pages").
+    MustParse()
+```
+
+## Autoload templates
+
+Autoloaded templates are available as [associated templates](#render-associated-templates) in all templates.
+
+```go
+fs := os.DirFS("templates")
+tp := tmpl.New(fs).
+    Autoload("components").
     MustParse()
 ```
 
 ## Render templates
 
-Tmpl has a default sync renderer and a [stream renderer](html-streaming.md). Renderers are not concurrent safe.
+A template is any type that implements `tmpl.Template`.
+Add a Tmpl method on your custom type and return a template definition.
+
+Tmpl has a default sync renderer and a [stream renderer](html-streaming.md).
 
 ### Render template with struct (recommended)
-
-A template is any type that implements `tmpl.Template`. The Template method returns the template name and template data.
-
-> The template name and the template data are tightly coupled.
 
 ```go
 type Home struct {
     Title string
 }
 
-func (h Home) Template() (string, any) {
-    return "pages/home", h
+func (h Home) Tmpl() tmpl.Template {
+    return tmpl.Tmpl("pages/home", h)
 }
 
 func main() {
-    templates := tmpl.New(os.DirFS("templates")).LoadTree("pages").MustParse()
+    fs := os.DirFS("templates")
+    tp := tmpl.New(fs).LoadTree("pages").MustParse()
 
-    err := templates.Render(os.Stdout, Home{"Homepage"})
+    err := tp.Render(os.Stdout, Home{"Homepage"})
 }
 ```
 
-### Render template with `tmpl.Tmpl`
-
-`tmpl.Tmpl` wraps any value in an internal struct that implements `tmpl.Template`.
-
-> The template name and the template data are loosely coupled.
+### Render template inline
 
 ```go
 func main() {
-    templates := tmpl.New(os.DirFS("templates")).LoadTree("pages").MustParse()
+    fs := os.DirFS("templates")
+    tp := tmpl.New(fs).LoadTree("pages").MustParse()
 
-    err := templates.Render(os.Stdout, tmpl.Tmpl("pages/home", tmpl.Map{
-        "Title": "Homepage 2",
+    err := tp.Render(os.Stdout, tmpl.Tmpl("pages/home", tmpl.Map{
+        "Title": "Homepage",
     }))
 }
 ```
 
-### Render template with struct and `tmpl.Tmpl` (recommended for layouts)
+## Render associated templates
 
-Use `tmpl.Tmpl` to compose template data.
-When more than one data argument is provided `tmpl.Tmpl` composes the arguments as nested template data.
-```go
-// for example the template below
-tp1 := tmpl.Tmpl("template", 1)
-// will have the following template data
-data1 = 1
-
-// while the template below
-tp2 := tmpl.Tmpl("template", 1, "one", true)
-// will have the following template data
-data2 := tmpl.Map{
-  "Data": 1,
-  "Child": tmpl.Map{
-    "Data":  "one",
-    "Child": true,
-  }
-}
-```
-
-> The rendered template name and the template data are tightly coupled.
-
-```go
-type Layout struct {
-    Title string
-}
-
-type Home struct {
-    Layout
-    Username string
-}
-
-func (h Home) Template() (string, any) {
-    return tmpl.Tmpl("pages/home", h.Layout, h).Template()
-}
-
-func main() {
-    templates := tmpl.New(os.DirFS("templates")).LoadTree("pages").MustParse()
-
-    err := tr.Render(os.Stdout, Home{Layout{"Homepage"}, "Johndoe"})
-}
-```
-
-## Layouts
-
-Templates with layouts render their layout template and define a block to fill the layout template's slots.
-See the example below:
-
-### Directory structure
-
-```text
-/
-├── templates/
-│   ├── components/
-│   ├── pages/
-│   │   │── index.go
-│   │   │── index.html
-│   │   │── layout.go
-│   │   └── layout.html
-└── main.go
-```
-
-### HTML structure / Data flow
-
-```html
-<!-- templates/pages/layout.html -->
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <title>{{ .Data.Title }}</title>
-  </head>
-  <body>
-    <header>
-      <h1>{{ .Data.Title }}</h1>
-    </header>
-    {{ template "content" .Child }}
-  </body>
-</html>
-```
-
-```go
-// templates/pages/layout.go
-
-type Layout struct {
-    Title string
-}
-```
-
-```html
-<!-- templates/pages/index.html -->
-{{ template "pages/layout" . }}
-
-{{ define "content" }}
-<main>
-  <p>Hello {{ .Username }}</p>
-</main>
-{{ end }}
-```
-
-```go
-// templates/pages/index.go
-
-type Index struct {
-    Username string
-}
-
-func (i Index) Template() (string, any) {
-    return tmpl.Tmpl("pages/index", Layout{"Homepage"}, i).Template()
-}
-```
-> When more than one data argument is provided `tmpl.Tmpl` composes the arguments as nested template data.
-
-`templates/pages/index.html` is the entry point. It  defines the `content` block and renders the layout, passing all the template data to the layout.
-`templates/pages/layout.html` receives the template data which should contain `.Data` and `.Child` fields (`.Data` is the layout data and `.Child` is the data for the child template) and renders the `content` block passing the child template data.
-
-## Associated Templates
-
-Associated templates are named templates within a loaded template. This is useful for rendering partials defined within the template. Take a look at the example below:
+Associated templates are named templates within a template. This is useful for rendering partials defined within the template. Take a look at the example below:
 
 ```html
 <!-- templates/pages/index.html -->
@@ -264,47 +147,125 @@ Associated templates are named templates within a loaded template. This is usefu
 ```
 
 ```go
-// templates/pages/index.go
+// main.go
 
 type Index struct { 
     Message string
 }
 
-func (i Index) Template() (string, any) {
-    return "pages/index", i
+func (i Index) Tmpl() tmpl.Template {
+    return tmpl.Tmpl("pages/index", i)
 }
 
-type IndexButton struct {
+type Button struct {
     Text string
 }
 
-func (b IndexButton) AssociatedTemplate() (string, string, any) {
-    return "pages/index", "button", b.Text
+func (b Button) Tmpl() tmpl.Template {
+    return tmpl.Associated("pages/index", "button", b.Text)
 }
-```
-
-```go
-// main.go
 
 func main() {
-    templates := tmpl.New(os.DirFS("templates")).LoadTree("pages").MustParse()
+    fs := os.DirFS("templates")
+    tp := tmpl.New(fs).LoadTree("pages").MustParse()
 
-    templates.Render(os.Stdout, Index{"Click me"})
+    tp.Render(os.Stdout, Index{"Click me"})
     // outputs:
     // <main>
     //      <p>Button example</p>
     //      <button>Click me</button>
     // </main>
-    // <button>{{ . }}</button>
 
-    templates.RenderAssociated(os.Stdout, IndexButton{"Click me"})
+    tp.Render(os.Stdout, IndexButton{"Click me"})
     // outputs:
     // <button>Click me</button>
 
-    // Or using tmpl.AssociatedTmpl helper
-    templates.RenderAssociated(os.Stdout, tmpl.AssociatedTmpl("pages/index", "button", "Press me"))
+    // Or inline
+    tp.Render(os.Stdout, tmpl.Associated("pages/index", "button", "Press me"))
     // outputs:
     // <button>Press me</button>
+}
+```
+
+## Layouts
+
+Use slots to render children in layouts. See the example below:
+
+### Directory structure
+
+```text
+/
+├── templates/
+│   ├── components/
+│   ├── pages/
+│   │   │── index.html
+│   │   └── layout.html
+```
+
+### HTML structure
+
+```html
+<!-- templates/pages/layout.html -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>{{ .Title }}</title>
+  </head>
+  <body>
+    <header>
+      <h1>{{ .Title }}</h1>
+    </header>
+    {{ slot .Children }}
+  </body>
+</html>
+```
+
+```html
+<!-- templates/pages/index.html -->
+<main>
+  <p>Hello {{ .Username }}</p>
+</main>
+```
+
+```go
+// main.go
+
+type Layout struct {
+    Title string
+    Children tmpl.Template
+}
+
+func (l Layout) Tmpl() tmpl.Template {
+    return tmpl.Layout("pages/layout", l, l.Children)
+}
+
+type Index struct {
+    Title string
+    Username string
+}
+
+func (i Index) Tmpl() tmpl.Template {
+    return Layout{
+        Title: i.Title,
+        Children: tmpl.Tmpl("pages/index", i)
+    }
+}
+
+func main() {
+    fs := os.DirFS("templates")
+    tp := tmpl.New(fs).LoadTree("pages").MustParse()
+
+    err := tp.Render(os.Stdout, Index{
+        Title: "Homepage",
+        Username: "Bob",
+    })
+
+    // or inline
+    page := tmpl.Tmpl("pages/layout", tmpl.Map{"Username": "Bob"})
+    err = tp.Render(buf, Layout("pages/layout", Map{
+		"Title":    "Homepage",
+		"Children": page,
+	}, page))
 }
 ```
 
@@ -313,7 +274,8 @@ func main() {
 Clone templates to share similar configurations between templates.
 
 ```go
-tp1 := tmpl.New(os.DirFS("templates")).SetExt("tmpl")
+fs := os.DirFS("templates")
+tp1 := tmpl.New(fs).SetExt("tmpl")
 // tmpl extension applies to tp1, tp2 and tp3
 
 tp2, err := tp1.Clone()
@@ -360,14 +322,13 @@ Composes HTML class from successive arguments.
 Go Templates does not have a clear way of using slots so you have to rely on
 overriding associated template definitions which has several pitfalls.
 
-Use `tmpl` to create a [tmpl.Template](#render-templates) that can be used as slotted content.
+Use `tmpl` to create a `tmpl.Template` inside templates.
 
- `tmpl [template name] [template data]`
+`tmpl [template name] [template data]`
 
 Use `slot` to execute slotted content. Slotted content can be a `tmpl.Template` or string.
-string content will be escaped.
 
-`slot [slotted content]`.
+`slot [slotted content]`
 
 ```html
 <!-- button.html -->
