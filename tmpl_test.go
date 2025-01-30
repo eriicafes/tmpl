@@ -115,21 +115,22 @@ func TestLoadTree(t *testing.T) {
 }
 
 type LayoutPage struct {
-	Data     int
-	Children Template
+	Children
+	Data int
 }
 
 func (l LayoutPage) Tmpl() Template {
-	return Layout("layout", l, l.Children)
+	return Associated(l.Base(), "layout", l)
 }
 
 type SubLayoutPage struct {
-	Data     int
 	Children Template
+	Data     int
 }
 
 func (s SubLayoutPage) Tmpl() Template {
-	return Layout("sub/layout", s, s.Children)
+	base, _, _ := Info(s.Children)
+	return Associated(base, "sub/layout", s)
 }
 
 func TestLoadTreeWithLayout(t *testing.T) {
@@ -155,25 +156,32 @@ func TestLoadTreeWithLayout(t *testing.T) {
 		expected string
 	}{
 		{
-			template: Layout(
+			template: Associated(
+				"index",
 				"layout",
 				Map{
 					"Data":     1,
 					"Children": Tmpl("index", 2),
 				},
-				Tmpl("index", nil), // to specify base template only
 			),
 			expected: "<h1>1</h1><p>2</p>",
 		},
 		{
 			template: LayoutPage{
-				Data:     1,
-				Children: IndexPage(2),
+				Data: 1,
+				Children: Children{
+					IndexPage(2),
+				},
 			},
 			expected: "<h1>1</h1><p>2</p>",
 		},
 		{
-			template: Layout(
+			template: Wrap(&LayoutPage{Data: 1}, IndexPage(2)),
+			expected: "<h1>1</h1><p>2</p>",
+		},
+		{
+			template: Associated(
+				"sub/index",
 				"layout",
 				Map{
 					"Data": 1,
@@ -185,29 +193,37 @@ func TestLoadTreeWithLayout(t *testing.T) {
 						},
 					),
 				},
-				Tmpl("sub/index", nil), // to specify base template only
 			),
 			expected: "<h1>1</h1><h2>2</h2><p>3</p>",
 		},
 		{
 			template: LayoutPage{
 				Data: 1,
-				Children: SubLayoutPage{
-					Data:     2,
-					Children: SubIndexPage(3),
+				Children: Children{
+					SubLayoutPage{
+						Data:     2,
+						Children: SubIndexPage(3),
+					},
 				},
 			},
 			expected: "<h1>1</h1><h2>2</h2><p>3</p>",
 		},
+		{
+			template: Wrap(&LayoutPage{Data: 1}, SubLayoutPage{
+				Data:     2,
+				Children: SubIndexPage(3),
+			}),
+			expected: "<h1>1</h1><h2>2</h2><p>3</p>",
+		},
 		// skip root layout
 		{
-			template: Layout(
+			template: Associated(
+				"sub/index",
 				"sub/layout",
 				Map{
 					"Data":     2,
 					"Children": Tmpl("sub/index", 3),
 				},
-				Tmpl("sub/index", nil), // to specify base template only
 			),
 			expected: "<h2>2</h2><p>3</p>",
 		},
@@ -220,21 +236,27 @@ func TestLoadTreeWithLayout(t *testing.T) {
 		},
 		// skip sub layout
 		{
-			template: Layout(
+			template: Associated(
+				"sub/index",
 				"layout",
 				Map{
 					"Data":     1,
 					"Children": Tmpl("sub/index", 3),
 				},
-				Tmpl("sub/index", nil), // to specify base template only
 			),
 			expected: "<h1>1</h1><p>3</p>",
 		},
 		{
 			template: LayoutPage{
-				Data:     1,
-				Children: SubIndexPage(3),
+				Data: 1,
+				Children: Children{
+					SubIndexPage(3),
+				},
 			},
+			expected: "<h1>1</h1><p>3</p>",
+		},
+		{
+			template: Wrap(&LayoutPage{Data: 1}, SubIndexPage(3)),
 			expected: "<h1>1</h1><p>3</p>",
 		},
 	}

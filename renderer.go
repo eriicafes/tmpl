@@ -33,14 +33,14 @@ func (t Templates) Render(w io.Writer, tp Template) error {
 }
 
 func (r *renderer) Render(w io.Writer, tp Template) error {
-	tpl := tp.Tmpl().(tmpl)
-	t := r.Templates[tpl.base]
+	base, name, data := Info(tp)
+	t := r.Templates[base]
 	if t == nil {
 		t = r.Templates["<root>"]
 	}
 	// attach writer to renderer
 	r.w = w
-	err := t.ExecuteTemplate(w, tpl.name, tpl.data)
+	err := t.ExecuteTemplate(w, name, data)
 	if err != nil || r.stream == nil {
 		return err
 	}

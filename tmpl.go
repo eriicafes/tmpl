@@ -20,20 +20,47 @@ type tmpl struct {
 
 func (t tmpl) Tmpl() Template { return t }
 
-// Tmpl returns a new Template with name and data.
+func Info(tp Template) (base, name string, data any) {
+	if tp, ok := tp.(tmpl); ok {
+		return tp.base, tp.name, tp.data
+	}
+	return Info(tp.Tmpl())
+}
+
+// Tmpl returns a Template with name and data.
 func Tmpl(name string, data any) Template {
 	return tmpl{name, name, data}
 }
 
-// Associated returns a new Template with name and data in the base template.
+// Associated returns a Template with name and data in the base template.
 func Associated(base string, name string, data any) Template {
 	return tmpl{base, name, data}
 }
 
-// Layout returns a new Template based on tp with the base template set to that of children.
-func Layout(name string, data any, children Template) Template {
-	tpl := children.Tmpl().(tmpl)
-	return tmpl{tpl.base, name, data}
+// Layout is implemented by any type that implements a Wrap method
+// which sets the children field to the template passed.
+//
+// As a convenience you can embed Children in a Template struct to make it a Layout.
+type Layout interface {
+	Template
+	Wrap(Template)
+}
+
+// Children implements Wrap method required for layouts.
+// Children also provides a Base method to return the base template.
+type Children struct{ Template }
+
+func (c *Children) Wrap(t Template) { c.Template = t }
+
+func (c *Children) Base() string {
+	base, _, _ := Info(c.Template)
+	return base
+}
+
+// Wrap sets the children template for a Layout.
+func Wrap(l Layout, t Template) Template {
+	l.Wrap(t)
+	return l
 }
 
 type Map map[string]any

@@ -72,6 +72,7 @@ tp := tmpl.New(fs).
 ### Load directory (recommended).
 
 Load all templates like in a file-based router. By default the layout filename for each path segment is `layout`.
+Layouts templates are available as associated templates within the loaded template.
 
 ```go
 fs := os.DirFS("templates")
@@ -96,7 +97,20 @@ tp := tmpl.New(fs).
 A template is any type that implements `tmpl.Template`.
 Add a Tmpl method on your custom type and return a template definition.
 
-Tmpl has a default sync renderer and a [stream renderer](html-streaming.md).
+Tmpl has a default sync renderer and a stream renderer. [See streaming guide](html-streaming.md).
+
+### Render template inline
+
+```go
+func main() {
+    fs := os.DirFS("templates")
+    tp := tmpl.New(fs).LoadTree("pages").MustParse()
+
+    err := tp.Render(os.Stdout, tmpl.Tmpl("pages/home", tmpl.Map{
+        "Title": "Homepage",
+    }))
+}
+```
 
 ### Render template with struct (recommended)
 
@@ -117,22 +131,11 @@ func main() {
 }
 ```
 
-### Render template inline
-
-```go
-func main() {
-    fs := os.DirFS("templates")
-    tp := tmpl.New(fs).LoadTree("pages").MustParse()
-
-    err := tp.Render(os.Stdout, tmpl.Tmpl("pages/home", tmpl.Map{
-        "Title": "Homepage",
-    }))
-}
-```
-
 ## Render associated templates
 
-Associated templates are named templates within a template. This is useful for rendering partials defined within the template. Take a look at the example below:
+Associated templates are named templates within a template.
+This is useful for rendering layouts, autoloaded templates or partials defined within the template.
+Take a look at the example below:
 
 ```html
 <!-- templates/pages/index.html -->
@@ -189,7 +192,9 @@ func main() {
 
 ## Layouts
 
-Use slots to render children in layouts. See the example below:
+When using [LoadTree](#load-directory-recommended) layout templates for each path segment are available as associated templates.
+Render layouts as regular associated templates and render the dynamic children using slot.
+See the example below:
 
 ### Directory structure
 
@@ -227,28 +232,45 @@ Use slots to render children in layouts. See the example below:
 </main>
 ```
 
+### Render layouts inline
+
+```go
+// main.go
+
+func main() {
+    fs := os.DirFS("templates")
+    tp := tmpl.New(fs).LoadTree("pages").MustParse()
+
+    err := tp.Render(os.Stdout, tmpl.Associated("pages/index", "pages/layout", tmpl.Map{
+		"Title":    "Homepage",
+		"Children": tmpl.Tmpl("pages/index", tmpl.Map{"Username": "Bob"}),
+	}))
+}
+```
+
+### Render layouts with struct (recommended)
+
+When using structs you can embed `tmpl.Children` to the layout template struct and use `tmpl.Wrap` to compose layouts.
+
 ```go
 // main.go
 
 type Layout struct {
+    tmpl.Children
     Title string
-    Children tmpl.Template
 }
 
 func (l Layout) Tmpl() tmpl.Template {
-    return tmpl.Layout("pages/layout", l, l.Children)
+    return tmpl.Associated(l.Base(), "pages/layout", l)
 }
 
 type Index struct {
-    Title string
+    Layout
     Username string
 }
 
 func (i Index) Tmpl() tmpl.Template {
-    return Layout{
-        Title: i.Title,
-        Children: tmpl.Tmpl("pages/index", i)
-    }
+    return tmpl.Wrap(&i.Layout, tmpl.Tmpl("pages/index", i))
 }
 
 func main() {
@@ -256,16 +278,11 @@ func main() {
     tp := tmpl.New(fs).LoadTree("pages").MustParse()
 
     err := tp.Render(os.Stdout, Index{
-        Title: "Homepage",
+        Layout: Layout{
+            Title: "Homepage",
+        },
         Username: "Bob",
     })
-
-    // or inline
-    page := tmpl.Tmpl("pages/layout", tmpl.Map{"Username": "Bob"})
-    err = tp.Render(buf, Layout("pages/layout", Map{
-		"Title":    "Homepage",
-		"Children": page,
-	}, page))
 }
 ```
 
