@@ -1,5 +1,11 @@
 # tmpl
 
+## 0.11.0
+
+### Minor Changes
+
+- 6b89866: Drop Layout function in favor of Associated and Wrap
+
 ## 0.10.0
 
 ### Minor Changes
