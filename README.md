@@ -286,24 +286,6 @@ func main() {
 }
 ```
 
-## Clone templates
-
-Clone templates to share similar configurations between templates.
-
-```go
-fs := os.DirFS("templates")
-tp1 := tmpl.New(fs).SetExt("tmpl")
-// tmpl extension applies to tp1, tp2 and tp3
-
-tp2, err := tp1.Clone()
-tp2.Autoload("components/ui")
-// components/ui autoload applies only to tp2
-
-// MustClone panics on clone error
-tp3 := tp1.MustClone().Autoload("components/icons")
-// components/icons autoload applies only to tp3
-```
-
 ## Funcs
 
 Tmpl predefines some template functions.
@@ -406,4 +388,22 @@ See more about [HTML Streaming](html-streaming.md).
 {{ define "lazy:error" }}
 <p>Failed: {{ . }}</p>
 {{ end }}
+```
+
+## Clone templates
+
+Clone templates to share similar configurations between templates.
+
+```go
+fs := os.DirFS("templates")
+tp1 := tmpl.New(fs).SetExt("tmpl")
+// tmpl extension applies to tp1, tp2 and tp3
+
+tp2, err := tp1.Clone()
+tp2.Autoload("components/ui")
+// components/ui autoload applies only to tp2
+
+// MustClone panics on clone error
+tp3 := tp1.MustClone().Autoload("components/icons")
+// components/icons autoload applies only to tp3
 ```
