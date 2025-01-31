@@ -1,0 +1,12 @@
+{{ $class := clsx
+    "bg-transparent text-sm px-2.5 py-1.5 rounded-md"
+    "border focus:outline-none border-zinc-200 focus:border-zinc-400 dark:border-zinc-800 dark:focus:border-zinc-600"
+    .class
+}}
+<input
+    required
+    name="{{ .name }}"
+    type="{{ or .type "text "}}"
+    value="{{ .value }}"
+    placeholder="{{ .placeholder }}"
+    class="{{ $class }}">

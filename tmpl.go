@@ -57,10 +57,11 @@ func (c *Children) Base() string {
 	return base
 }
 
-// Wrap sets the children template for a Layout.
-func Wrap(l Layout, t Template) Template {
-	l.Wrap(t)
-	return l
+// Wrap sets t as the children of parent and returns parent.
+// Wrap composes layouts by returning the parent template and letting it render its children as a slot.
+func Wrap(parent Layout, t Template) Template {
+	parent.Wrap(t)
+	return parent
 }
 
 type Map map[string]any
