@@ -263,8 +263,9 @@ func (t *templatesParser) Parse() (Templates, error) {
 //
 // MustParse panics if loading any of the templates returned an error.
 func (t *templatesParser) MustParse() Templates {
-	if t.loadErr != nil {
-		panic(t.loadErr)
+	templates, err := t.Parse()
+	if err != nil {
+		panic(err)
 	}
-	return t.templates
+	return templates
 }
