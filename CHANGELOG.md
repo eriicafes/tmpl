@@ -1,5 +1,11 @@
 # tmpl
 
+## 0.12.0
+
+### Minor Changes
+
+- b03ce5b: Add vite_script and vite_css template funcs
+
 ## 0.11.0
 
 ### Minor Changes
