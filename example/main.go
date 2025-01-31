@@ -7,17 +7,19 @@ import (
 	"os"
 	"strconv"
 
+	"tmpl-example/app/pages"
+	profile_pages "tmpl-example/app/pages/profile"
+
 	"github.com/eriicafes/tmpl"
-	"github.com/eriicafes/tmpl/example/app/pages"
-	profile_pages "github.com/eriicafes/tmpl/example/app/pages/profile"
 	"github.com/eriicafes/tmpl/vite"
 )
 
 func main() {
-	prod := flag.Bool("prod", false, "production mode")
+	dev := flag.Bool("dev", false, "development mode")
+	flag.Parse()
 
 	v, _ := vite.New(vite.Config{
-		Dev: !*prod,
+		Dev: *dev,
 	})
 	fs := os.DirFS("app")
 	tp := tmpl.New(fs).Funcs(v.Funcs()).Autoload("components").LoadTree("pages").MustParse()
@@ -64,5 +66,6 @@ func main() {
 		http.Redirect(w, r, "/", http.StatusFound)
 	})
 	http.Handle("/", v.ServePublic(http.NotFoundHandler()))
-	http.ListenAndServe(":8000", nil)
+	err := http.ListenAndServe(":8000", nil)
+	panic(err)
 }

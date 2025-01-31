@@ -1,0 +1,13 @@
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp"
+
+[build]
+args_bin = ["-dev"]
+bin = "./tmp/main"
+cmd = "go build -o ./tmp/main ."
+delay = 1000
+exclude_dir = [
+  "node_modules",
+  "tmp",
+]

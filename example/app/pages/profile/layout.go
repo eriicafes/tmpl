@@ -1,8 +1,9 @@
 package profile_pages
 
 import (
+	"tmpl-example/app/pages"
+
 	"github.com/eriicafes/tmpl"
-	"github.com/eriicafes/tmpl/example/app/pages"
 )
 
 type Layout struct {
