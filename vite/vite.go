@@ -107,7 +107,9 @@ func (v *Vite) Funcs() template.FuncMap {
 		"vite":               v.ViteTags,
 		"vite_public":        v.PublicPath,
 		"vite_asset":         v.AssetPath,
-		"vite_react_refresh": v.reactRefresh,
+		"vite_script":        v.Script,
+		"vite_css":           v.CSS,
+		"vite_react_refresh": v.ReactRefresh,
 		"vite_dev":           func() bool { return v.Dev },
 	}
 }
@@ -119,6 +121,9 @@ func (v *Vite) devUrl(path string) string {
 
 // PublicPath returns the absolute path for an asset in the public directory.
 func (v *Vite) PublicPath(path string) string {
+	if v.Dev {
+		return v.devUrl(path)
+	}
 	return strings.TrimSuffix(v.Base, "/") + "/" + strings.TrimPrefix(path, "/")
 }
 
@@ -133,6 +138,37 @@ func (v *Vite) AssetPath(name string) (string, error) {
 		return "", fmt.Errorf("asset %q does not exist in vite manifest", name)
 	}
 	return strings.TrimSuffix(v.Base, "/") + "/" + chunk.File, nil
+}
+
+func (v *Vite) Script(name string) (template.HTML, error) {
+	path, err := v.AssetPath(name)
+	if err != nil {
+		return "", err
+	}
+	return template.HTML(fmt.Sprintf(`<script type="module" src="%s"></script>`, path)), nil
+}
+
+func (v *Vite) CSS(name string) (template.HTML, error) {
+	path, err := v.AssetPath(name)
+	if err != nil {
+		return "", err
+	}
+	return template.HTML(fmt.Sprintf(`<link rel="stylesheet" href="%s" />`, path)), nil
+}
+
+// ReactRefresh returns script for react refresh with @vitejs/plugin-react.
+// During production this returns an empty string.
+func (v *Vite) ReactRefresh() template.HTML {
+	if !v.Dev {
+		return ""
+	}
+	return template.HTML(fmt.Sprintf(`<script type="module">
+  import RefreshRuntime from '%s'
+  RefreshRuntime.injectIntoGlobalHook(window)
+  window.$RefreshReg$ = () => {}
+  window.$RefreshSig$ = () => (type) => type
+  window.__vite_plugin_react_preamble_installed__ = true
+</script>`, v.devUrl("@react-refresh")))
 }
 
 // ViteTags returns required vite tags to be rendered in the html head.
@@ -196,21 +232,6 @@ func importedChunks(manifest Manifest, chunk *ManifestChunk) []*ManifestChunk {
 		return chunks
 	}
 	return getImportedChunks(chunk)
-}
-
-// reactRefresh returns script for react refresh with @vitejs/plugin-react.
-// During production this returns an empty string.
-func (v *Vite) reactRefresh() template.HTML {
-	if !v.Dev {
-		return ""
-	}
-	return template.HTML(fmt.Sprintf(`<script type="module">
-  import RefreshRuntime from '%s'
-  RefreshRuntime.injectIntoGlobalHook(window)
-  window.$RefreshReg$ = () => {}
-  window.$RefreshSig$ = () => (type) => type
-  window.__vite_plugin_react_preamble_installed__ = true
-</script>`, v.devUrl("@react-refresh")))
 }
 
 // ServePublic proxies requests to static assets to the vite server in development
