@@ -294,7 +294,7 @@ If you always need [typed templates](#render-template-with-types-recommended) yo
 Set template extension to go files and define the template content using `tmpl.Define`.
 `tmpl.Define` must use backticks and must be executed exactly once in the init function of the go file.
 
-> When a loading a template file that has a .go extension tmpl will only extract the arguments of a `tmpl.Define` function call.
+> When loading a template file that has a .go extension tmpl will only extract the arguments of a `tmpl.Define` function call.
 
 ```go
 // templates/pages/home.go
