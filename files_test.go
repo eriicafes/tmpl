@@ -1,7 +1,10 @@
 package tmpl
 
 import (
+	"bytes"
+	"html/template"
 	"maps"
+	"os"
 	"slices"
 	"testing"
 	"testing/fstest"
@@ -101,5 +104,44 @@ func TestWalkFilesWithLayout(t *testing.T) {
 	got = walkFilesWithLayout(fs, "html", "layout", "app")
 	if !maps.EqualFunc(expected, got, slices.Equal) {
 		t.Errorf("expected: %v, got: %v", expected, got)
+	}
+}
+
+func TestGoTemplateFile(t *testing.T) {
+	fs := os.DirFS("testdata/go-file-templates")
+
+	tests := []struct {
+		file     string
+		expected string
+	}{
+		{"single", "Hello world"},
+		{"double", "Hello world 1"},
+		{"none", ""},
+		{"quotes", ""},
+		{"quotes-and-backticks", "Hello world 2"},
+		{"comment", "Hello world"},
+	}
+
+	var files []string
+	for _, test := range tests {
+		files = append(files, test.file)
+	}
+
+	tp := template.New("templates")
+	err := parseFiles(fs, tp, "go", files)
+	if err != nil {
+		t.Error(err)
+	}
+
+	buf := new(bytes.Buffer)
+	for _, test := range tests {
+		err := tp.ExecuteTemplate(buf, test.file, nil)
+		if err != nil {
+			t.Error(err)
+		}
+		if buf.String() != test.expected {
+			t.Errorf("expected: %s %q, got: %q", test.file, test.expected, buf.String())
+		}
+		buf.Reset()
 	}
 }
