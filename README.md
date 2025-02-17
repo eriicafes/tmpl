@@ -313,16 +313,16 @@ func (h Home) Tmpl() tmpl.Template {
 
 func init() {
 	tmpl.Define(`
-	<!DOCTYPE html>
-	<html lang="en">
-	<head>
-		<title>{{ .Title }}</title>
-	</head>
-	<body>
-		<h1>{{ .Title }}</h1>
-	</body>
-	</html>
-	`)
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>{{ .Title }}</title>
+</head>
+<body>
+    <h1>{{ .Title }}</h1>
+</body>
+</html>
+`)
 }
 ```
 
