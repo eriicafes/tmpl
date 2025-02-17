@@ -2,7 +2,6 @@ package tmpl
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 	"testing/fstest"
 )
@@ -263,7 +262,6 @@ func TestLoadTreeWithLayout(t *testing.T) {
 	for _, test := range tests {
 		err := templates.Render(buf, test.template)
 		if err != nil {
-			fmt.Println("err:", err)
 			t.Error(err)
 		}
 		if buf.String() != test.expected {

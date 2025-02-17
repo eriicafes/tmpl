@@ -97,7 +97,7 @@ tp := tmpl.New(fs).
 A template is any type that implements `tmpl.Template`.
 Add a Tmpl method on your custom type and return a template definition.
 
-Tmpl has a default sync renderer and a stream renderer. [See streaming guide](html-streaming.md).
+> Tmpl has a default sync renderer and a stream renderer. [See streaming guide](html-streaming.md).
 
 ### Render template inline
 
@@ -112,7 +112,9 @@ func main() {
 }
 ```
 
-### Render template with struct (recommended)
+### Render template with types (recommended)
+
+Implement the `tmpl.Template` interface for your custom type and use it to render.
 
 ```go
 type Home struct {
@@ -283,6 +285,55 @@ func main() {
         },
         Username: "Bob",
     })
+}
+```
+
+## Single File Templates
+If you always need [typed templates](#render-template-with-types-recommended) you might want to colocate template types and content in a single go file.
+
+Set template extension to go files and define the template content using `tmpl.Define`.
+`tmpl.Define` must use backticks and must be executed exactly once in the init function of the go file.
+
+> When a loading a template file that has a .go extension tmpl will only extract the arguments of a `tmpl.Define` function call.
+
+```go
+// templates/pages/home.go
+
+package templates
+
+import "github.com/eriicafes/tmpl"
+
+type Home struct {
+	Title string
+}
+
+func (h Home) Tmpl() tmpl.Template {
+	return tmpl.Tmpl("pages/home", h)
+}
+
+func init() {
+	tmpl.Define(`
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		<title>{{ .Title }}</title>
+	</head>
+	<body>
+		<h1>{{ .Title }}</h1>
+	</body>
+	</html>
+	`)
+}
+```
+
+```go
+// main.go
+
+func main() {
+    fs := os.DirFS("templates")
+    tp := tmpl.New(fs).SetExt("go").LoadTree("pages").MustParse()
+
+    err := tp.Render(os.Stdout, Home{"Homepage"})
 }
 ```
 

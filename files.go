@@ -4,9 +4,31 @@ import (
 	"html/template"
 	"io/fs"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 )
+
+// Define defines the template content for a go file.
+//
+// Define must use backticks and must be executed exactly once in the init function of the go file.
+// The content is interpreted as-is as the code is not actually executed.
+//
+// Define is a noop.
+func Define(content string) {}
+
+func extractGoFileContent(s string) string {
+	// match content within tmpl.Content(`content`)
+	// account for syntaxt highlighting comments like tmpl.Content( /* html */ `content`)
+	re := regexp.MustCompile(`tmpl\.Define\(\s*(?:\/\*.*?\*\/\s*)?` + "`([^`]*)`" + `\)`)
+	matches := re.FindStringSubmatch(s)
+
+	if len(matches) > 1 {
+		// trim and return extracted content inside backticks
+		return strings.TrimSpace(matches[1])
+	}
+	return ""
+}
 
 // parseFiles parses template files into t.
 //
@@ -22,7 +44,11 @@ func parseFiles(fsys fs.FS, t *template.Template, ext string, files []string) er
 			return err
 		}
 		tmpl := t.New(name)
-		_, err = tmpl.Parse(string(b))
+		text := string(b)
+		if ext == "go" {
+			text = extractGoFileContent(text)
+		}
+		_, err = tmpl.Parse(text)
 		if err != nil {
 			return err
 		}
