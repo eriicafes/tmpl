@@ -1,0 +1,19 @@
+{
+  "name": "tmpl-vite-example",
+  "version": "0.11.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.1",
+    "glob": "^11.0.1",
+    "tailwindcss": "^4.0.1",
+    "vite": "^6.0.11"
+  }
+}
