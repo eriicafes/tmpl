@@ -1,5 +1,11 @@
 # tmpl
 
+## 0.13.0
+
+### Minor Changes
+
+- 61a4897: Add single file templates
+
 ## 0.12.0
 
 ### Minor Changes
