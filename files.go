@@ -20,7 +20,7 @@ func Define(content string) {}
 func extractGoFileContent(s string) string {
 	// match content within tmpl.Content(`content`)
 	// account for syntaxt hughlighting comments like tmpl.Content( /* html */ `content`)
-	re := regexp.MustCompile(`tmpl\.Content\(\s*(?:\/\*.*?\*\/\s*)?` + "`([^`]*)`" + `\)`)
+	re := regexp.MustCompile(`tmpl\.Define\(\s*(?:\/\*.*?\*\/\s*)?` + "`([^`]*)`" + `\)`)
 	matches := re.FindStringSubmatch(s)
 
 	if len(matches) > 1 {
