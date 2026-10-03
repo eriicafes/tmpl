@@ -1,5 +1,16 @@
 # tmpl
 
+## 0.14.0
+
+### Minor Changes
+
+- eca4ee3: Drop renderer APIs in favor of Templates.Render and Templates.Stream
+- eca4ee3: Decouple AsyncValue from Renderer and add Go func
+- eca4ee3: Drop single file templates
+- eca4ee3: Simplify layouts with Wrap and children
+- eca4ee3: Rename slot template function to render
+- eca4ee3: Add props template function alias
+
 ## 0.12.0
 
 ### Minor Changes
