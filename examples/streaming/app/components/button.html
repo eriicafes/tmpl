@@ -4,5 +4,5 @@
     .class
 }}
 <button {{ .attrs }} {{if .id}} id="{{ .id }}" {{end}} class="{{ $class }}">
-    {{ slot .content }}
+    {{ render .content }}
 </button>

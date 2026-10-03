@@ -19,7 +19,7 @@ go get github.com/eriicafes/tmpl
 
 - Render templates with structs
 - Automatic templates loading
-- Supports template [layouts](#layouts) and [slots](#tmpl--slot)
+- Supports template [layouts](#layouts)
 - Pure [go templates](https://pkg.go.dev/html/template) (zero dependencies, zero code generation)
 - [HTML streaming](html-streaming.md) support
 - First-party [Vite integration](vite/README.md)
@@ -195,7 +195,7 @@ func main() {
 ## Layouts
 
 When using [LoadTree](#load-directory-recommended) layout templates for each path segment are available as associated templates.
-Render layouts as regular associated templates and render the dynamic children using slot.
+Templates declare their layouts with `tmpl.Wrap`, while layout templates use `{{ children }}` to render their child content.
 See the example below:
 
 ### Directory structure
@@ -222,7 +222,7 @@ See the example below:
     <header>
       <h1>{{ .Title }}</h1>
     </header>
-    {{ slot .Children }}
+    {{ children }}
   </body>
 </html>
 ```
@@ -234,45 +234,29 @@ See the example below:
 </main>
 ```
 
-### Render layouts inline
-
-```go
-// main.go
-
-func main() {
-    fs := os.DirFS("templates")
-    tp := tmpl.New(fs).LoadTree("pages").MustParse()
-
-    err := tp.Render(os.Stdout, tmpl.Associated("pages/index", "pages/layout", tmpl.Map{
-		"Title":    "Homepage",
-		"Children": tmpl.Tmpl("pages/index", tmpl.Map{"Username": "Bob"}),
-	}))
-}
-```
-
-### Render layouts with struct (recommended)
-
-When using structs you can embed `tmpl.Children` to the layout template struct and use `tmpl.Wrap` to compose layouts.
+### Go structure
 
 ```go
 // main.go
 
 type Layout struct {
-    tmpl.Children
     Title string
 }
 
 func (l Layout) Tmpl() tmpl.Template {
-    return tmpl.Associated(l.Base(), "pages/layout", l)
+    return tmpl.Tmpl("pages/layout", l)
 }
 
 type Index struct {
-    Layout
+    Title string
     Username string
 }
 
 func (i Index) Tmpl() tmpl.Template {
-    return tmpl.Wrap(&i.Layout, tmpl.Tmpl("pages/index", i))
+    return tmpl.Wrap(
+        Layout{Title: i.Title},
+        tmpl.Tmpl("pages/index", i),
+    )
 }
 
 func main() {
@@ -280,60 +264,21 @@ func main() {
     tp := tmpl.New(fs).LoadTree("pages").MustParse()
 
     err := tp.Render(os.Stdout, Index{
-        Layout: Layout{
-            Title: "Homepage",
-        },
+        Title: "Homepage",
         Username: "Bob",
     })
 }
 ```
 
-## Single File Templates
-If you always need [typed templates](#render-template-with-types-recommended) you might want to colocate template types and content in a single go file.
-
-Set template extension to go files and define the template content using `tmpl.Define`.
-`tmpl.Define` must use backticks and must be executed exactly once in the init function of the go file.
-
-> When loading a template file that has a .go extension tmpl will only extract the arguments of a `tmpl.Define` function call.
+A layout can have its own layout. A page only names its direct layout:
 
 ```go
-// templates/pages/home.go
-
-package templates
-
-import "github.com/eriicafes/tmpl"
-
-type Home struct {
-	Title string
+func (l ProfileLayout) Tmpl() tmpl.Template {
+    return tmpl.Wrap(Layout{Title: l.Title}, tmpl.Tmpl("pages/profile/layout", l))
 }
 
-func (h Home) Tmpl() tmpl.Template {
-	return tmpl.Tmpl("pages/home", h)
-}
-
-func init() {
-	tmpl.Define(`
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <title>{{ .Title }}</title>
-</head>
-<body>
-    <h1>{{ .Title }}</h1>
-</body>
-</html>
-`)
-}
-```
-
-```go
-// main.go
-
-func main() {
-    fs := os.DirFS("templates")
-    tp := tmpl.New(fs).SetExt("go").LoadTree("pages").MustParse()
-
-    err := tp.Render(os.Stdout, Home{"Homepage"})
+func (p ProfilePage) Tmpl() tmpl.Template {
+    return tmpl.Wrap(ProfileLayout{Title: "Profile"}, tmpl.Tmpl("pages/profile/index", p))
 }
 ```
 
@@ -341,7 +286,7 @@ func main() {
 
 Tmpl predefines some template functions.
 
-### map
+### map and props
 Returns a map from successive arguments. Arguments length must be even.
 ```html
 {{ $data := map "key" "value" }}
@@ -357,6 +302,12 @@ Returns a map from successive arguments. Arguments length must be even.
 {{ template "button" map "text" "Click me!" "type" "submit" }}
 ```
 
+`props` is an alias for `map`, intended for component calls:
+
+```html
+{{ template "button" props "text" "Click me!" "type" "submit" }}
+```
+
 ### clsx
 Composes HTML class from successive arguments.
 ```html
@@ -368,27 +319,28 @@ Composes HTML class from successive arguments.
 <div class="{{ $class }}">...</div>
 ```
 
-### tmpl & slot
-Go Templates does not have a clear way of using slots so you have to rely on
-overriding associated template definitions which has several pitfalls.
+### tmpl & render
+Go Templates does not have a clear way to render component content, so you
+otherwise have to rely on overriding associated template definitions, which has
+several pitfalls.
 
 Use `tmpl` to create a `tmpl.Template` inside templates.
 
 `tmpl [template name] [template data]`
 
-Use `slot` to execute slotted content. Slotted content can be a `tmpl.Template` or string.
+Use `render` to execute component content. Component content can be a `tmpl.Template` or string.
 
-`slot [slotted content]`
+`render [component content]`
 
 ```html
 <!-- button.html -->
 <button class="{{ .class }}">
-    {{ slot .children }}
+    {{ render .children }}
 </button>
 
 <!-- select.html -->
 <select name="{{ .name }}">
-    {{ slot .children }}
+    {{ render .children }}
 </select>
 
 <!-- index.html -->
@@ -400,7 +352,7 @@ Use `slot` to execute slotted content. Slotted content can be a `tmpl.Template` 
 
             {{ template "select" map
                 "name" "subject"
-                "children" (tmpl "subject-options" .Options) // template slot
+                "children" (tmpl "subject-options" .Options) // template component
             }}
             {{ define "subject-options" }}
                 {{ range . }}
@@ -410,11 +362,22 @@ Use `slot` to execute slotted content. Slotted content can be a `tmpl.Template` 
 
             {{ template "button" map
                 "class" "px-4 py-2 rounded-md bg-black text-white"
-                "children" "Submit form" // string slot
+                "children" "Submit form" // string component
             }}
         </form>
     </body>
 </html>
+```
+
+### children
+
+Use `children` in a layout template to render its wrapped child.
+
+```html
+<!-- layout.html -->
+<main>
+    {{ children }}
+</main>
 ```
 
 ### stream
@@ -423,7 +386,7 @@ Streamed templates may optionally define pending and error templates as seen bel
 See more about [HTML Streaming](html-streaming.md).
 ```html
 <div>
-    <h1>{{ stream "lazy" .LazyData }}</h1>
+    {{ stream "lazy" .LazyData }}
 </div>
 
 {{ define "lazy" }}

@@ -1,11 +1,5 @@
 # tmpl
 
-## 0.13.0
-
-### Minor Changes
-
-- 61a4897: Add single file templates
-
 ## 0.12.0
 
 ### Minor Changes
@@ -24,7 +18,7 @@
 
 - bb3c432: Drop RenderAssociated and AssociatedTemplate in favour of unified Tmpl function
 - bb3c432: Change Template interface to return single value
-- bb3c432: Simplify templates layout structure using slots
+- bb3c432: Simplify templates layout structure using rendered components
 
 ## 0.9.0
 
@@ -36,7 +30,7 @@
 
 ### Minor Changes
 
-- c2dec08: Add lazy & slot template funcs for slotted content support
+- c2dec08: Add lazy & render template funcs for component content support
 
 ### Patch Changes
 

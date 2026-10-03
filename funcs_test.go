@@ -2,6 +2,7 @@ package tmpl
 
 import (
 	"maps"
+	"reflect"
 	"testing"
 )
 
@@ -41,6 +42,67 @@ func TestMap(t *testing.T) {
 		}
 		if !maps.Equal(output, test.output) {
 			t.Errorf("expected: %q got: %q", test.output, output)
+		}
+	}
+}
+
+func TestProps(t *testing.T) {
+	props, ok := funcMap["props"].(func(...any) (map[string]any, error))
+	if !ok {
+		t.Fatal("props is not a map function")
+	}
+
+	tests := []struct {
+		input  []any
+		output map[string]any
+		err    string
+	}{
+		{
+			input:  []any{"class", "primary", "disabled", true},
+			output: map[string]any{"class": "primary", "disabled": true},
+		},
+		{
+			input: []any{"class", "primary", "disabled"},
+			err:   "key disabled missing value",
+		},
+		{
+			input: []any{"class", "primary", 1, true},
+			err:   "expected string key found int",
+		},
+	}
+
+	for _, test := range tests {
+		output, err := props(test.input...)
+		if err != nil {
+			if err.Error() != test.err {
+				t.Errorf("expected err: %q got: %q", test.err, err)
+			}
+		} else if test.err != "" {
+			t.Errorf("expected err: %q got: %v", test.err, err)
+		}
+		if !maps.Equal(output, test.output) {
+			t.Errorf("expected: %q got: %q", test.output, output)
+		}
+	}
+}
+
+func TestTmpl(t *testing.T) {
+	tmplFunc, ok := funcMap["tmpl"].(func(string, any) Template)
+	if !ok {
+		t.Fatal("tmpl is not a template function")
+	}
+
+	tests := []struct {
+		name string
+		data any
+	}{
+		{name: "component", data: "text"},
+		{name: "components/button", data: Map{"disabled": true}},
+	}
+	for _, test := range tests {
+		base, name, data := Info(tmplFunc(test.name, test.data))
+		if base != test.name || name != test.name || !reflect.DeepEqual(data, test.data) {
+			t.Errorf("expected (%q, %q, %#v), got (%q, %q, %#v)", test.name, test.name, test.data, base, name, data)
 		}
 	}
 }

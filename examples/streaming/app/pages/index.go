@@ -7,13 +7,13 @@ import (
 )
 
 type Index struct {
-	Layout
-	Name  string
-	Count tmpl.AsyncValue[int, error]
+	Layout Layout
+	Name   string
+	Count  tmpl.AsyncValue[int, error]
 }
 
 func (i Index) Tmpl() tmpl.Template {
-	return tmpl.Wrap(&i.Layout, tmpl.Tmpl("pages/index", i))
+	return tmpl.Wrap(i.Layout, tmpl.Tmpl("pages/index", i))
 }
 
 func (i Index) Greeting() string {

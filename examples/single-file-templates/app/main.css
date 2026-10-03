@@ -1,3 +1,0 @@
-@import "tailwindcss" source("../app/");
-
-@custom-variant dark (&:where(.dark, .dark *));

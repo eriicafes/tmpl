@@ -28,7 +28,7 @@ Tmpl supports HTML streaming by writing html response as they become available. 
 {{ end }} 
 ```
 
-### Sync Renderer (Blocking)
+### Render (Blocking)
 
 When the sync renderer encounters an async value it flushes the written html and blocks until the async value resolves.
 
@@ -38,8 +38,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
-
 	"github.com/eriicafes/tmpl"
 )
 
@@ -47,8 +45,8 @@ type Index struct {
 	LazyData tmpl.AsyncValue[string, error]
 }
 
-func (i Index) Template() (string, any) {
-	return "pages/index", i
+func (i Index) Tmpl() tmpl.Template {
+	return tmpl.Tmpl("pages/index", i)
 }
 
 func main() {
@@ -56,17 +54,13 @@ func main() {
 		LoadTree("pages").
 		MustParse()
 
-	tr := templates.SyncRenderer() // using the sync renderer
 	page := Index{
-		LazyData: tmpl.NewAsyncValue[string, error](tr),
+		LazyData: tmpl.Go(func(value tmpl.AsyncValue[string, error]) {
+			value.Ok("success")
+		}),
 	}
 
-	go func() {
-		time.Sleep(time.Second * 3)
-		page.LazyData.Ok("success")
-	}()
-
-	err := tr.Render(os.Stdout, page)
+	err := templates.Render(os.Stdout, page)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -74,7 +68,7 @@ func main() {
 ```
 
 
-### Stream Renderer (Out of Order Streaming)
+### Stream (Out of Order Streaming)
 
 When the stream renderer encounters an async value it immediately returns a pending fallback template and waits for the async value in a separate goroutine and then streams in the resolved template when it becomes available all in the same http response.
 
@@ -84,6 +78,7 @@ Out of Order Streaming improves server-side performance by sending as much HTML 
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -95,8 +90,8 @@ type Index struct {
 	LazyData tmpl.AsyncValue[string, error]
 }
 
-func (i Index) Template() (string, any) {
-	return "pages/index", i
+func (i Index) Tmpl() tmpl.Template {
+	return tmpl.Tmpl("pages/index", i)
 }
 
 func main() {
@@ -104,21 +99,20 @@ func main() {
 		LoadTree("pages").
 		MustParse()
 
-	tr := templates.StreamRenderer() // using the stream renderer
 	page := Index{
-		LazyData: tmpl.NewAsyncValue[string, error](tr),
+		LazyData: tmpl.Go(func(value tmpl.AsyncValue[string, error]) {
+			time.Sleep(time.Second * 3)
+			value.Ok("success")
+		}),
 	}
 
-	go func() {
-		time.Sleep(time.Second * 3)
-		page.LazyData.Ok("success")
-	}()
-
-	err := tr.Render(os.Stdout, page)
+	err := templates.Stream(context.Background(), os.Stdout, page)
 	if err != nil {
 		fmt.Println(err)
 	}
 }
 ```
 
-Under the hood when you stream a template with a pending async value, Tmpl renders the pending template with a div which has a data-tmpl-cid attribute and then waits for the async value in a separate goroutine. When the async value is available it executes the template and sends it to the html response stream after which a client side script swaps the pending template with the resolved template.
+Under the hood, Tmpl surrounds a pending async value with comment boundaries and waits for the value in a separate goroutine. When the value is available, it sends the resolved template to the response stream and a client-side script replaces the content between those boundaries.
+
+The pending and resolved templates must be valid children of the element containing `stream`. For example, a stream inside an `h1` should resolve to text or phrasing content, not a `p`. Raw-text elements such as `script`, `style`, `title`, and `textarea` cannot contain streams.

@@ -9,5 +9,5 @@ type Index struct {
 
 func (i Index) Tmpl() tmpl.Template {
 	parent := Layout{Title: i.Title}
-	return tmpl.Wrap(&parent, tmpl.Tmpl("pages/profile/index", i))
+	return tmpl.Wrap(parent, tmpl.Tmpl("pages/profile/index", i))
 }

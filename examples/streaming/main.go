@@ -35,15 +35,13 @@ func main() {
 			count, _ = strconv.Atoi(cookie.Value)
 		}
 
-		tr := tp.StreamRenderer()
-		asyncCount := tmpl.NewAsyncValue[int, error](tr)
-		// simulate a 5s delay for getting count
-		go func() {
+		asyncCount := tmpl.Go(func(value tmpl.AsyncValue[int, error]) {
+			// simulate a 5s delay for getting count
 			time.Sleep(time.Second * 5)
-			asyncCount.Ok(count)
-		}()
+			value.Ok(count)
+		})
 
-		err := tr.Render(w, pages.Index{
+		err := tp.Stream(r.Context(), w, pages.Index{
 			Layout: pages.Layout{
 				Title: "Welcome",
 			},
