@@ -2,36 +2,41 @@ package vite
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
 	"io/fs"
+	"maps"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 type Config struct {
-	// Dev indicates vite is running in developement mode, defaults to false.
+	// Dev indicates Vite is running in development mode.
 	Dev bool
 
-	// Port is the port the vite dev server is running on.
-	// Should match viteConfig.server.port, defaults to "5173".
-	Port string
+	// DevOrigin is the origin of the Vite dev server.
+	// It defaults to "http://localhost:5173".
+	DevOrigin string
 
 	// Output is the directory where vite build output will be placed.
-	// Should match viteConfig.build.outDir, defaults to os.DirFS("dist").
+	// It should match build.outDir and defaults to os.DirFS("dist").
 	Output fs.FS
 
-	// Base is the path the vite applitcation is served from, it should start with a slash.
-	// Should match viteConfig.base, defaults to "/".
+	// Base is the path the Vite application is served from and must start with a slash.
+	// It should match base in vite.config and defaults to "/".
 	Base string
 }
 
 type Vite struct {
 	Config
-	Manifest Manifest
+	Manifest  Manifest
+	devOrigin *url.URL
+	importMap string
 }
 
 type Manifest map[string]ManifestChunk
@@ -48,8 +53,9 @@ type ManifestChunk struct {
 	DynamicImports []string
 }
 
-// New creates a new vite instance.
-// A a non-nil error is returned if the vite manifest is missing or malformed when running in production.
+// New creates a new Vite instance.
+// A non-nil error is returned if the Vite manifest is missing or malformed, or
+// if a present import map is malformed, in production.
 //
 // To enable vite for your application render the vite tags in your template html head.
 //
@@ -59,16 +65,16 @@ type ManifestChunk struct {
 //
 // {{ vite_react_refresh }}
 //
-// Vite entry point can be configured using viteConfig.build.rollupOptions.input in your vite config.
+// Vite entry points can be configured with the top-level input option in vite.config.
 // Multiple entry points can be specified as follows:
 //
 // {{ vite "path/to/input1.js" "path/to/input2.js" }}
 //
-// You must enable vite manifest by setting viteConfig.build.manifest to true in your vite config.
+// You must enable the Vite manifest by setting build.manifest to true in vite.config.
 // Run `vite build` and set Dev to false for production.
 func New(config Config) (*Vite, error) {
-	if config.Port == "" {
-		config.Port = "5173"
+	if config.DevOrigin == "" {
+		config.DevOrigin = "http://localhost:5173"
 	}
 	if config.Output == nil {
 		config.Output = os.DirFS("dist")
@@ -76,19 +82,51 @@ func New(config Config) (*Vite, error) {
 	if !strings.HasPrefix(config.Base, "/") {
 		config.Base = "/" + config.Base
 	}
-	m := make(Manifest)
-	var err error
-	if !config.Dev {
-		b, rerr := fs.ReadFile(config.Output, ".vite/manifest.json")
-		err = rerr
-		if err == nil {
-			err = json.Unmarshal(b, &m)
+	v := &Vite{Config: config}
+	if config.Dev {
+		origin, err := url.Parse(config.DevOrigin)
+		if err != nil || origin.Scheme == "" || origin.Host == "" {
+			if err == nil {
+				err = fmt.Errorf("must include a scheme and host")
+			}
+			return nil, fmt.Errorf("invalid Vite dev origin %q: %w", config.DevOrigin, err)
 		}
+		v.devOrigin = origin
+		return v, nil
 	}
-	return &Vite{
-		Manifest: m,
-		Config:   config,
-	}, err
+
+	b, err := fs.ReadFile(config.Output, ".vite/manifest.json")
+	if err != nil {
+		return v, err
+	}
+	if err := json.Unmarshal(b, &v.Manifest); err != nil {
+		return v, err
+	}
+	importMap, err := validateImportMap(config.Output)
+	if err != nil {
+		return v, err
+	}
+	v.importMap = importMap
+	return v, nil
+}
+
+func validateImportMap(fsys fs.FS) (string, error) {
+	b, err := fs.ReadFile(fsys, "importmap.json")
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	var importMap any
+	if err := json.Unmarshal(b, &importMap); err != nil {
+		return "", fmt.Errorf("invalid Vite import map: %w", err)
+	}
+	b, err = json.Marshal(importMap)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 // Funcs returns vite helper functions for templates.
@@ -96,64 +134,32 @@ func New(config Config) (*Vite, error) {
 // vite returns required vite tags to be rendered in the html head.
 // Usage: {{ vite "input" }} or {{ vite "input1" "input2" }} for multiple entry points.
 //
-// public returns the absolute path for an asset in the public directory.
-// Usage: {{ public "logo.png" }}.
-//
-// assets returns the absolute path for an asset in vite entry point viteConfig.build.rollupOptions.input.
-// Use for assets that are not already required when rendering vite tags.
-// Usage: {{ assets "src/main.ts" }}.
+// vite_public returns the absolute path for an asset in the public directory.
+// Usage: {{ vite_public "logo.png" }}.
 func (v *Vite) Funcs() template.FuncMap {
 	return template.FuncMap{
 		"vite":               v.ViteTags,
+		"vite_entry":         v.EntryTags,
 		"vite_public":        v.PublicPath,
-		"vite_asset":         v.AssetPath,
-		"vite_script":        v.Script,
-		"vite_css":           v.CSS,
 		"vite_react_refresh": v.ReactRefresh,
 		"vite_dev":           func() bool { return v.Dev },
 	}
 }
 
-func (v *Vite) devUrl(path string) string {
-	base := fmt.Sprintf("http://localhost:%s", v.Port) + v.Base
-	return strings.TrimSuffix(base, "/") + "/" + strings.TrimPrefix(path, "/")
+func (v *Vite) devURL(name string) string {
+	path := strings.TrimSuffix(v.Base, "/") + "/" + strings.TrimPrefix(name, "/")
+	u := *v.devOrigin
+	u.Path = strings.TrimSuffix(u.Path, "/") + path
+	u.RawPath, u.RawQuery, u.Fragment = "", "", ""
+	return u.String()
 }
 
 // PublicPath returns the absolute path for an asset in the public directory.
 func (v *Vite) PublicPath(path string) string {
 	if v.Dev {
-		return v.devUrl(path)
+		return v.devURL(path)
 	}
 	return strings.TrimSuffix(v.Base, "/") + "/" + strings.TrimPrefix(path, "/")
-}
-
-// AssetPath returns the absolute path for an asset in the vite entry point viteConfig.build.rollupOptions.input.
-// During development AssetPath returns the file name as is.
-func (v *Vite) AssetPath(name string) (string, error) {
-	if v.Dev {
-		return v.devUrl(name), nil
-	}
-	chunk, ok := v.Manifest[name]
-	if !ok {
-		return "", fmt.Errorf("asset %q does not exist in vite manifest", name)
-	}
-	return strings.TrimSuffix(v.Base, "/") + "/" + chunk.File, nil
-}
-
-func (v *Vite) Script(name string) (template.HTML, error) {
-	path, err := v.AssetPath(name)
-	if err != nil {
-		return "", err
-	}
-	return template.HTML(fmt.Sprintf(`<script type="module" src="%s"></script>`, path)), nil
-}
-
-func (v *Vite) CSS(name string) (template.HTML, error) {
-	path, err := v.AssetPath(name)
-	if err != nil {
-		return "", err
-	}
-	return template.HTML(fmt.Sprintf(`<link rel="stylesheet" href="%s" />`, path)), nil
 }
 
 // ReactRefresh returns script for react refresh with @vitejs/plugin-react.
@@ -168,7 +174,7 @@ func (v *Vite) ReactRefresh() template.HTML {
   window.$RefreshReg$ = () => {}
   window.$RefreshSig$ = () => (type) => type
   window.__vite_plugin_react_preamble_installed__ = true
-</script>`, v.devUrl("@react-refresh")))
+</script>`, v.devURL("@react-refresh")))
 }
 
 // ViteTags returns required vite tags to be rendered in the html head.
@@ -176,37 +182,65 @@ func (v *Vite) ReactRefresh() template.HTML {
 // https://vite.dev/guide/backend-integration.html
 func (v *Vite) ViteTags(inputs ...string) (template.HTML, error) {
 	tags := new(strings.Builder)
+	if v.importMap != "" {
+		appendTag(tags, fmt.Sprintf(`<script type="importmap">%s</script>`, v.importMap))
+	}
 	if v.Dev {
-		appendTag(tags, fmt.Sprintf(`<script type="module" src="%s"></script>`, v.devUrl("@vite/client")))
-		for _, input := range inputs {
-			path, err := v.AssetPath(input)
-			if err != nil {
-				return "", err
-			}
-			appendTag(tags, fmt.Sprintf(`<script type="module" src="%s"></script>`, path))
-		}
-		return template.HTML(tags.String()), nil
+		appendTag(tags, scriptTag(v.devURL("@vite/client")))
 	}
 	for _, input := range inputs {
-		chunk, ok := v.Manifest[input]
-		if !ok || !chunk.IsEntry {
-			return "", fmt.Errorf("entry point %q does not exist in vite manifest", input)
+		entry, err := v.EntryTags(input)
+		if err != nil {
+			return "", err
 		}
-		for _, css := range chunk.Css {
-			appendTag(tags, fmt.Sprintf(`<link rel="stylesheet" href="%s" />`, v.PublicPath(css)))
+		appendTag(tags, string(entry))
+	}
+	return template.HTML(tags.String()), nil
+}
+
+// EntryTags returns the required Vite tags for one entry point.
+func (v *Vite) EntryTags(input string) (template.HTML, error) {
+	if v.Dev {
+		path := v.devURL(input)
+		if strings.HasSuffix(strings.ToLower(path), ".css") {
+			return template.HTML(cssTag(path)), nil
 		}
-		chunks := importedChunks(v.Manifest, &chunk)
-		for _, ch := range chunks {
-			for _, css := range ch.Css {
-				appendTag(tags, fmt.Sprintf(`<link rel="stylesheet" href="%s" />`, v.PublicPath(css)))
-			}
+		return template.HTML(scriptTag(path)), nil
+	}
+	chunk, ok := v.Manifest[input]
+	if !ok || !chunk.IsEntry {
+		return "", fmt.Errorf("entry point %q does not exist in vite manifest", input)
+	}
+	tags := new(strings.Builder)
+	for _, css := range chunk.Css {
+		appendTag(tags, cssTag(v.PublicPath(css)))
+	}
+	chunks := importedChunks(v.Manifest, &chunk)
+	for _, ch := range chunks {
+		for _, css := range ch.Css {
+			appendTag(tags, cssTag(v.PublicPath(css)))
 		}
-		appendTag(tags, fmt.Sprintf(`<script type="module" src="%s"></script>`, v.PublicPath(chunk.File)))
-		for _, ch := range chunks {
-			appendTag(tags, fmt.Sprintf(`<link rel="modulepreload" href="%s" />`, v.PublicPath(ch.File)))
+	}
+	path := v.PublicPath(chunk.File)
+	if strings.HasSuffix(strings.ToLower(path), ".css") {
+		appendTag(tags, cssTag(path))
+	} else {
+		appendTag(tags, scriptTag(path))
+	}
+	for _, ch := range chunks {
+		if !strings.HasSuffix(strings.ToLower(ch.File), ".css") {
+			appendTag(tags, fmt.Sprintf(`<link rel="modulepreload" href="%s">`, template.HTMLEscapeString(v.PublicPath(ch.File))))
 		}
 	}
 	return template.HTML(tags.String()), nil
+}
+
+func scriptTag(path string) string {
+	return fmt.Sprintf(`<script type="module" src="%s"></script>`, template.HTMLEscapeString(path))
+}
+
+func cssTag(path string) string {
+	return fmt.Sprintf(`<link rel="stylesheet" href="%s">`, template.HTMLEscapeString(path))
 }
 
 func appendTag(tags *strings.Builder, s string) (int, error) {
@@ -235,18 +269,18 @@ func importedChunks(manifest Manifest, chunk *ManifestChunk) []*ManifestChunk {
 }
 
 // ServePublic proxies requests to static assets to the vite server in development
-// or serves the output directory in production for GET requests.
-// ServePublic executes the fallback handler for non GET requests or if the static asset is not found.
+// or serves the output directory in production for GET and HEAD requests.
+// ServePublic executes the fallback handler for other requests or if the static asset is not found.
 func (v *Vite) ServePublic(fallback http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			fallback.ServeHTTP(w, r)
 			return
 		}
 
 		var handler http.Handler
 		if v.Dev {
-			handler = devProxyHandler(fmt.Sprintf("localhost:%s", v.Port))
+			handler = devProxyHandler(v.devOrigin)
 		} else {
 			handler = http.FileServerFS(filteredFS{v.Output})
 			if v.Base != "/" {
@@ -309,16 +343,20 @@ func (ff filteredFS) Open(name string) (fs.File, error) {
 	return file, err
 }
 
-func devProxyHandler(host string) http.Handler {
+func devProxyHandler(origin *url.URL) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		dest := "http://" + host + r.URL.Path
-		req, err := http.NewRequestWithContext(r.Context(), r.Method, dest, r.Body)
+		dest := *origin
+		dest.Path = strings.TrimSuffix(origin.Path, "/") + r.URL.Path
+		dest.RawPath = ""
+		dest.RawQuery = r.URL.RawQuery
+		dest.ForceQuery = r.URL.ForceQuery
+		req, err := http.NewRequestWithContext(r.Context(), r.Method, dest.String(), r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		req.Header = r.Header.Clone()
-		req.Host = r.Host
+		req.Host = origin.Host
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -328,9 +366,7 @@ func devProxyHandler(host string) http.Handler {
 		defer resp.Body.Close()
 
 		h := w.Header()
-		for k, v := range resp.Header {
-			h[k] = v
-		}
+		maps.Copy(h, resp.Header)
 		w.WriteHeader(resp.StatusCode)
 		io.Copy(w, resp.Body)
 	})

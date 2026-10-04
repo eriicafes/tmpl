@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	v, err := vite.New(vite.Config{Dev: true}) // <-- create vite instance
+	v, err := vite.New(vite.Config{Dev: true}) // <-- create Vite instance
 	if err != nil {
 		panic(err)
 	}
@@ -32,7 +32,7 @@ func main() {
 		MustParse()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err := templates.Render(w, tmpl.Tmpl("pages/index"))
+		err := templates.Render(w, tmpl.Tmpl("pages/index", nil))
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -44,7 +44,8 @@ func main() {
 
 #### 2. Update vite config.
 
-Enable vite manifest and change vite entry point.
+Enable the Vite manifest and configure the entry point. Vite 8 recommends the
+top-level `input` option so development and production use the same entry.
 
 ```ts
 // vite.config.ts
@@ -53,13 +54,35 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
+  input: "/src/main.tsx",
   plugins: [react()],
-  build: {
-    manifest: true, // <-- enable vite manifest
-    rollupOptions: {
-      input: "src/main.tsx" // <-- change entry point
+  server: {
+    cors: {
+      origin: "http://localhost:8000",
     },
   },
+  build: {
+    manifest: true, // <-- enable vite manifest
+  },
+})
+```
+
+This integration uses a custom JavaScript entry rather than an HTML entry. Add
+the module-preload polyfill at the beginning of that entry unless you disabled
+Vite's module-preload polyfill:
+
+```ts
+import "vite/modulepreload-polyfill"
+```
+
+When the Go application is not at the default local origin, set `DevOrigin` to
+the complete Vite server origin and allow the Go application's browser origin
+with `server.cors`:
+
+```go
+vite.New(vite.Config{
+    Dev:       true,
+    DevOrigin: "https://vite.example.test:5173",
 })
 ```
 
@@ -67,7 +90,7 @@ export default defineConfig({
 
 Render the vite tags in your template html head.
 
-`{{ vite "path/to/input.js" }}`
+`{{ vite "path/to/input.js" "path/to/input.css" }}`
 
 Additionally for React using `@vitejs/plugin-react` render the react refresh script before the vite tags.
 
@@ -94,7 +117,8 @@ Additionally for React using `@vitejs/plugin-react` render the react refresh scr
 
 #### vite
 
-vite returns the required vite tags. For each of the inputs it returns a script tag with the src set to the asset path.
+vite returns the required Vite tags. For each input it returns a module script
+or stylesheet tag matching the input's output type.
 
 ```html
 <!doctype html>
@@ -137,27 +161,18 @@ In production the ServePublic middleware serves the vite output directory.
 </html>
 ```
 
-#### vite_asset
+#### vite_entry
 
-vite_asset references static assets relative to their path in source code.
-In development it resolves the path on the vite development server.
-In production it resolves to the vite build output.
+vite_entry returns the tags for one Vite entry without repeating the development
+client or import map emitted by vite. Use it for a script or stylesheet that
+only a particular page needs.
 
 ```html
-<!doctype html>
-<html lang="en">
-  <head>...</head>
-  <body>
-    <!-- executing this -->
-    <script type="module" src="{{ vite_asset "src/app.ts" }}"></script>
+<!-- layout -->
+{{ vite "app/main.ts" "app/main.css" }}
 
-    <!-- returns this in development -->
-    <script type="module" src="http://localhost:5173/src/app.ts"></script>
-
-    <!-- returns this in production -->
-    <script type="module" src="/assets/app.js"></script>
-  </body>
-</html>
+<!-- profile page -->
+{{ vite_entry "app/pages/profile.ts" }}
 ```
 
 #### vite_react_refresh
@@ -188,44 +203,20 @@ If you are using React with `@vitejs/plugin-react`, you'll need to add this befo
 
 #### vite_dev
 
-vite_dev indicates vite is running in developement mode.
-
-### Preventing FOUC (Flash of Unstyled Content) during development.
-
-During development if a stylesheet is referenced in JS via an import,
-vite will inline the CSS in a style tag. This may cause FOUC during development only.
-There are two ways to work around this:
-
-- Explicitly link the stylesheet and don't import
+vite_dev reports whether Vite is running in development mode. Use it only for
+development-only template behavior.
 
 ```html
-<!doctype html>
-<html lang="en">
-  <head>
-    {{ vite "src/main.ts" }}
-    <link rel="stylesheet" href="{{ vite_asset "src/main.css" }}">
-  </head>
-  <body>
-    ...
-  </body>
-</html>
+{{ if vite_dev }}
+  <script>console.info("development mode")</script>
+{{ end }}
 ```
 
-- Hide HTML content until JS is ready (may result in blank white screen while loading)
+### Vite 8 import maps
 
-```html
-<!doctype html>
-<html lang="en">
-  <head>
-    {{ if vite_dev }}
-    <script type="module">document.body.style.removeProperty("display")</script>
-    {{ end }}
-  </head>
-  <body {{if vite_dev}} style="display:none" {{end}}>
-    ...
-  </body >
-</html>
-```
+When Vite's experimental `build.chunkImportMap` option is enabled, it writes
+`importmap.json` beside the build output. This integration loads that file and
+emits its import map before Vite's module and preload tags.
 
 ### Deploying under nested path
 
@@ -256,7 +247,7 @@ func main() {
 		MustParse()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err := templates.Render(w, tmpl.Tmpl("pages/index"))
+		err := templates.Render(w, tmpl.Tmpl("pages/index", nil))
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -275,12 +266,10 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   base: "/app", // <-- specify base
+  input: "/src/main.tsx",
   plugins: [react()],
   build: {
     manifest: true,
-    rollupOptions: {
-      input: "src/main.tsx"
-    },
   },
 })
 

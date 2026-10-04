@@ -1,3 +1,5 @@
+import "vite/modulepreload-polyfill"
+
 // toggle theme
 document.querySelectorAll("[data-theme-toggle]").forEach((el) => {
   el.addEventListener("click", () => {
