@@ -42,7 +42,7 @@ import (
 )
 
 type Index struct {
-	LazyData tmpl.AsyncValue[string, error]
+	LazyData tmpl.Async[string, error]
 }
 
 func (i Index) Tmpl() tmpl.Template {
@@ -55,7 +55,7 @@ func main() {
 		MustParse()
 
 	page := Index{
-		LazyData: tmpl.Go(func(value tmpl.AsyncValue[string, error]) {
+		LazyData: tmpl.Go(func(value tmpl.Async[string, error]) {
 			value.Ok("success")
 		}),
 	}
@@ -87,7 +87,7 @@ import (
 )
 
 type Index struct {
-	LazyData tmpl.AsyncValue[string, error]
+	LazyData tmpl.Async[string, error]
 }
 
 func (i Index) Tmpl() tmpl.Template {
@@ -100,7 +100,7 @@ func main() {
 		MustParse()
 
 	page := Index{
-		LazyData: tmpl.Go(func(value tmpl.AsyncValue[string, error]) {
+		LazyData: tmpl.Go(func(value tmpl.Async[string, error]) {
 			time.Sleep(time.Second * 3)
 			value.Ok("success")
 		}),

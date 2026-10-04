@@ -46,6 +46,6 @@ func (r *contextFuncs) children() (template.HTML, error) {
 	return "", r.session.renderChildren(r.template)
 }
 
-func (r *contextFuncs) stream(name string, av asyncValuer) (template.HTML, error) {
+func (r *contextFuncs) stream(name string, av asyncValue) (template.HTML, error) {
 	return stream(r.template, r.session, name, av)
 }

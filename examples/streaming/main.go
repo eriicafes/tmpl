@@ -35,7 +35,7 @@ func main() {
 			count, _ = strconv.Atoi(cookie.Value)
 		}
 
-		asyncCount := tmpl.Go(func(value tmpl.AsyncValue[int, error]) {
+		asyncCount := tmpl.Go(func(value tmpl.Async[int, error]) {
 			// simulate a 5s delay for getting count
 			time.Sleep(time.Second * 5)
 			value.Ok(count)

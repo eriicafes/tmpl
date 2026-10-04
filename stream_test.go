@@ -20,7 +20,7 @@ func streamingTemplates(t *testing.T, source string) *Templates {
 
 func TestStreamReplacesCommentBoundaries(t *testing.T) {
 	templates := streamingTemplates(t, `before{{ stream "value" . }}after{{ define "value" }}<strong>{{ . }}</strong>{{ end }}{{ define "value:pending" }}<em>Loading</em>{{ end }}`)
-	value := NewAsyncValue[string, error]()
+	value := NewAsync[string, error]()
 	var output bytes.Buffer
 	w := &resolveOnMarker{Writer: &output, marker: "tmpl:start:", resolve: func() { value.Ok("done") }}
 
@@ -42,7 +42,7 @@ func TestStreamReplacesCommentBoundaries(t *testing.T) {
 
 func TestStreamInsideRender(t *testing.T) {
 	templates := streamingTemplates(t, `{{ render .Child }}{{ define "child" }}<section>{{ stream "value" . }}</section>{{ end }}{{ define "value" }}<strong>{{ . }}</strong>{{ end }}`)
-	value := NewAsyncValue[string, error]()
+	value := NewAsync[string, error]()
 	var output bytes.Buffer
 	w := &resolveOnMarker{Writer: &output, marker: "tmpl:start:", resolve: func() { value.Ok("done") }}
 	page := Map{"Child": Tmpl("child", value)}
@@ -61,7 +61,7 @@ func TestStreamInsideRender(t *testing.T) {
 
 func TestStreamInsideChildren(t *testing.T) {
 	templates := streamingTemplates(t, `{{ define "layout" }}before{{ children }}after{{ end }}{{ define "page" }}{{ stream "value" . }}{{ end }}{{ define "value" }}<strong>{{ . }}</strong>{{ end }}`)
-	value := NewAsyncValue[string, error]()
+	value := NewAsync[string, error]()
 	var output bytes.Buffer
 	w := &resolveOnMarker{Writer: &output, marker: "tmpl:start:", resolve: func() { value.Ok("done") }}
 	page := Wrap(Tmpl("layout", nil), Tmpl("page", value))
@@ -104,7 +104,7 @@ func TestStreamCancellationStopsWaiters(t *testing.T) {
 func TestInitialRenderErrorStopsWaiters(t *testing.T) {
 	templates := streamingTemplates(t, `{{ stream "value" .Value }}{{ .Missing }}`)
 	value := &blockingAsync{started: make(chan struct{}), stopped: make(chan struct{})}
-	page := struct{ Value asyncValuer }{Value: value}
+	page := struct{ Value asyncValue }{Value: value}
 
 	if err := templates.Stream(context.Background(), io.Discard, Tmpl("page", page)); err == nil {
 		t.Fatal("expected initial template error")
@@ -142,21 +142,21 @@ func TestStreamWriteErrorStopsWaiters(t *testing.T) {
 
 func TestPresentFallbackTemplateErrorsPropagate(t *testing.T) {
 	templates := streamingTemplates(t, `{{ stream "value" . }}{{ define "value:pending" }}{{ index . 0 }}{{ end }}`)
-	value := NewAsyncValue[string, error]()
+	value := NewAsync[string, error]()
 	if err := templates.Stream(context.Background(), io.Discard, Tmpl("page", value)); err == nil {
 		t.Fatal("expected pending template error")
 	}
 
 	templates = streamingTemplates(t, `{{ stream "value" . }}{{ define "value:error" }}{{ index . 0 }}{{ end }}`)
-	value = NewAsyncValue[string, error]()
+	value = NewAsync[string, error]()
 	value.Err(errors.New("failed"))
 	if err := templates.Render(io.Discard, Tmpl("page", value)); err == nil {
 		t.Fatal("expected error template error")
 	}
 }
 
-func TestAsyncValueConcurrentCachedReads(t *testing.T) {
-	value := NewAsyncValue[int, error]().(*asyncValue[int, error])
+func TestAsyncConcurrentCachedReads(t *testing.T) {
+	value := NewAsync[int, error]().(*async[int, error])
 	start := make(chan struct{})
 	var readers sync.WaitGroup
 	for range 8 {
@@ -165,21 +165,21 @@ func TestAsyncValueConcurrentCachedReads(t *testing.T) {
 			defer readers.Done()
 			<-start
 			for range 10_000 {
-				value.getCached()
+				value.getStored()
 			}
 		}()
 	}
 	close(start)
 	value.Ok(1)
 	readers.Wait()
-	data, ok := value.getCached()
+	data, ok := value.getStored()
 	if !ok || !data.ok || data.data != 1 {
 		t.Fatalf("unexpected cached value: %#v, %v", data, ok)
 	}
 }
 
-func TestAsyncValueRejectsDuplicateResolution(t *testing.T) {
-	value := NewAsyncValue[int, error]()
+func TestAsyncRejectsDuplicateResolution(t *testing.T) {
+	value := NewAsync[int, error]()
 	value.Ok(1)
 	defer func() {
 		if recover() == nil {
@@ -190,8 +190,8 @@ func TestAsyncValueRejectsDuplicateResolution(t *testing.T) {
 }
 
 func TestGo(t *testing.T) {
-	value := Go(func(value AsyncValue[int, error]) { value.Ok(7) })
-	data, resolved := value.(asyncValuer).get(context.Background())
+	value := Go(func(value Async[int, error]) { value.Ok(7) })
+	data, resolved := value.(asyncValue).get(context.Background())
 	if !resolved || !data.ok || data.data != 7 {
 		t.Fatalf("unexpected result: %#v, %v", data, resolved)
 	}
@@ -206,7 +206,7 @@ func TestStreamConcurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			value := NewAsyncValue[int, error]()
+			value := NewAsync[int, error]()
 			value.Ok(i)
 			var output bytes.Buffer
 			errs <- templates.Stream(context.Background(), &output, Tmpl("page", value))
@@ -250,7 +250,7 @@ func (a *blockingAsync) get(ctx context.Context) (streamData, bool) {
 	return streamData{}, false
 }
 
-func (a *blockingAsync) getCached() (streamData, bool) { return streamData{}, false }
+func (a *blockingAsync) getStored() (streamData, bool) { return streamData{}, false }
 
 type failOnScriptWriter struct{}
 

@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// streamData is the result of an AsyncValue.
+// streamData is the result of an Async.
 type streamData struct {
 	ok   bool
 	data any
@@ -19,14 +19,14 @@ type streamTemplate struct {
 	cid  uint32
 }
 
-func stream(t *template.Template, session *session, name string, av asyncValuer) (template.HTML, error) {
+func stream(t *template.Template, session *session, name string, av asyncValue) (template.HTML, error) {
 	if av == nil {
-		return "", fmt.Errorf("AsyncValue is nil")
+		return "", fmt.Errorf("Async is nil")
 	}
 	if session == nil {
 		return "", fmt.Errorf("stream called outside a render session")
 	}
-	if data, cached := av.getCached(); cached {
+	if data, stored := av.getStored(); stored {
 		return renderSync(t, name, data)
 	}
 	if !session.streaming {
@@ -50,7 +50,7 @@ func renderSync(t *template.Template, name string, data streamData) (template.HT
 	return executeTemplate(t, name, data.data)
 }
 
-func renderStream(t *template.Template, session *session, name string, av asyncValuer) (template.HTML, error) {
+func renderStream(t *template.Template, session *session, name string, av asyncValue) (template.HTML, error) {
 	session.startPending()
 	cid := session.nextCID()
 	session.pending++

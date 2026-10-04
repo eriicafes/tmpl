@@ -9,7 +9,7 @@ import (
 type Index struct {
 	Layout Layout
 	Name   string
-	Count  tmpl.AsyncValue[int, error]
+	Count  tmpl.Async[int, error]
 }
 
 func (i Index) Tmpl() tmpl.Template {
