@@ -2,12 +2,26 @@ package tmpl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"sync"
 )
+
+// WriteError wraps an error returned after template rendering begins. The
+// destination may already contain output, so callers should not write fallback
+// content.
+type WriteError struct{ error }
+
+func (err *WriteError) Unwrap() error { return err.error }
+
+// IsWriteError reports whether err occurred after template rendering began.
+func IsWriteError(err error) bool {
+	var writeErr *WriteError
+	return errors.As(err, &writeErr)
+}
 
 // Render executes tp synchronously. Async values block until they resolve.
 func (t *Templates) Render(w io.Writer, tp Template) error {
@@ -41,12 +55,15 @@ func (t *Templates) render(ctx context.Context, w io.Writer, tp Template, stream
 	}()
 
 	if err := session.render(funcs.template, node); err != nil {
-		return err
+		return &WriteError{err}
 	}
 	if !streaming {
 		return nil
 	}
-	return session.await(funcs.template)
+	if err := session.await(funcs.template); err != nil {
+		return &WriteError{err}
+	}
+	return nil
 }
 
 func (t *Templates) checkout(parsed *template.Template) (*contextFuncs, *sync.Pool, error) {

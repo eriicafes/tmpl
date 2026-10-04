@@ -89,6 +89,9 @@ func TestStreamCancellationStopsWaiters(t *testing.T) {
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected cancellation, got %v", err)
 	}
+	if !IsWriteError(err) {
+		t.Fatalf("error %T = %v, want WriteError", err, err)
+	}
 	select {
 	case <-value.started:
 	case <-time.After(time.Second):
@@ -108,6 +111,10 @@ func TestInitialRenderErrorStopsWaiters(t *testing.T) {
 
 	if err := templates.Stream(context.Background(), io.Discard, Tmpl("page", page)); err == nil {
 		t.Fatal("expected initial template error")
+	} else {
+		if !IsWriteError(err) {
+			t.Fatalf("error %T = %v, want WriteError", err, err)
+		}
 	}
 	select {
 	case <-value.started:
@@ -127,6 +134,9 @@ func TestStreamWriteErrorStopsWaiters(t *testing.T) {
 	err := templates.Stream(context.Background(), failOnScriptWriter{}, Tmpl("page", value))
 	if err == nil {
 		t.Fatal("expected write error")
+	}
+	if !IsWriteError(err) {
+		t.Fatalf("error %T = %v, want WriteError", err, err)
 	}
 	select {
 	case <-value.started:
