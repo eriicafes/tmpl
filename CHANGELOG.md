@@ -1,5 +1,13 @@
 # tmpl
 
+## 0.15.0
+
+### Minor Changes
+
+- d3bc123: Rename AsyncValue to Async
+- 86cfdb8: Add Vite 8 support
+- ebad265: Add WriteError for errors after rendering begins
+
 ## 0.14.0
 
 ### Minor Changes
