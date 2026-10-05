@@ -1,5 +1,11 @@
 # tmpl
 
+## 0.15.1
+
+### Patch Changes
+
+- ae46e83: Trim whitespace from Vite entry names
+
 ## 0.15.0
 
 ### Minor Changes
