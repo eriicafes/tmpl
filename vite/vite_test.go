@@ -89,7 +89,7 @@ func TestEntryTagsDevelopment(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tags, err := v.EntryTags("src/profile.ts")
+	tags, err := v.EntryTags("  src/profile.ts  ")
 	if err != nil {
 		t.Fatal(err)
 	}

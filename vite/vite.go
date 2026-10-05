@@ -200,6 +200,7 @@ func (v *Vite) ViteTags(inputs ...string) (template.HTML, error) {
 
 // EntryTags returns the required Vite tags for one entry point.
 func (v *Vite) EntryTags(input string) (template.HTML, error) {
+	input = strings.TrimSpace(input)
 	if v.Dev {
 		path := v.devURL(input)
 		if strings.HasSuffix(strings.ToLower(path), ".css") {
