@@ -22,6 +22,12 @@ func Associated(base string, name string, data any) Template {
 	return tmpl{base, name, data}
 }
 
+// StreamTmpl returns a Template that streams name with the value of av.
+// Render it with render.
+func StreamTmpl(name string, av asyncValue) Template {
+	return streamtmpl{name: name, av: av}
+}
+
 // Wrap composes a layout and its child template.
 func Wrap(layout, child Template) Template {
 	return tmplwrap{layout: layout, child: child}

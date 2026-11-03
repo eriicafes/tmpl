@@ -36,6 +36,9 @@ func (t *Templates) Stream(ctx context.Context, w io.Writer, tp Template) error 
 
 func (t *Templates) render(ctx context.Context, w io.Writer, tp Template, streaming bool) error {
 	node := normalize(tp)
+	if name, ok := streamLeaf(node); ok {
+		return fmt.Errorf("tmpl: StreamTmpl %q must be rendered with render inside a template", name)
+	}
 	base, _, _ := node.tmplnode()
 	parsed := t.parsed[base]
 	if parsed == nil {
@@ -64,6 +67,21 @@ func (t *Templates) render(ctx context.Context, w io.Writer, tp Template, stream
 		return &WriteError{err}
 	}
 	return nil
+}
+
+// streamLeaf reports whether node is a StreamTmpl or wraps one as its
+// innermost child, which has no template set to render the layouts in.
+func streamLeaf(node tmplnode) (string, bool) {
+	for {
+		switch n := node.(type) {
+		case streamtmpl:
+			return n.name, true
+		case tmplwrap:
+			node = n.child.(tmplnode)
+		default:
+			return "", false
+		}
+	}
 }
 
 func (t *Templates) checkout(parsed *template.Template) (*contextFuncs, *sync.Pool, error) {

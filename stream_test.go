@@ -59,6 +59,73 @@ func TestStreamInsideRender(t *testing.T) {
 	}
 }
 
+func TestStreamTmplAsProp(t *testing.T) {
+	templates := streamingTemplates(t, `{{ template "card" props "children" (streamtmpl "value" .) }}{{ define "card" }}<section>{{ render .children }}</section>{{ end }}{{ define "value" }}<strong>{{ . }}</strong>{{ end }}{{ define "value:pending" }}<em>Loading</em>{{ end }}`)
+	value := NewAsync[string, error]()
+	var output bytes.Buffer
+	w := &resolveOnMarker{Writer: &output, marker: "tmpl:start:", resolve: func() { value.Ok("done") }}
+
+	if err := templates.Stream(context.Background(), w, Tmpl("page", value)); err != nil {
+		t.Fatal(err)
+	}
+	got := output.String()
+	if !strings.Contains(got, `<section><!--tmpl:start:1--><em>Loading</em><!--tmpl:end:1--></section>`) {
+		t.Fatalf("missing streamed prop placeholder: %q", got)
+	}
+	if !strings.Contains(got, `<template data-tmpl-cid="1"><strong>done</strong></template>`) {
+		t.Fatalf("missing streamed prop fragment: %q", got)
+	}
+}
+
+func TestStreamTmplAsPage(t *testing.T) {
+	templates := streamingTemplates(t, `{{ define "layout" }}{{ children }}{{ end }}{{ define "value" }}{{ . }}{{ end }}`)
+	value := NewAsync[string, error]()
+	value.Ok("done")
+	err := templates.Render(io.Discard, Wrap(Tmpl("layout", nil), StreamTmpl("value", value)))
+	if err == nil || !strings.Contains(err.Error(), "must be rendered with render") {
+		t.Fatalf("expected StreamTmpl page error, got %v", err)
+	}
+}
+
+func TestStreamTmplRendersSync(t *testing.T) {
+	templates := streamingTemplates(t, `{{ render (streamtmpl "value" .) }}{{ define "value" }}<strong>{{ . }}</strong>{{ end }}`)
+	value := NewAsync[string, error]()
+	value.Ok("done")
+	var output bytes.Buffer
+	if err := templates.Render(&output, Tmpl("page", value)); err != nil {
+		t.Fatal(err)
+	}
+	if got := output.String(); got != "<strong>done</strong>" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestStreamInsideStream(t *testing.T) {
+	templates := streamingTemplates(t, `{{ stream "outer" . }}{{ define "outer" }}<section>{{ stream "inner" . }}</section>{{ end }}{{ define "outer:pending" }}outer{{ end }}{{ define "inner" }}<b>{{ . }}</b>{{ end }}{{ define "inner:pending" }}inner{{ end }}`)
+	inner := NewAsync[string, error]()
+	outer := NewAsync[Async[string, error], error]()
+	var output bytes.Buffer
+	resolveInner := &resolveOnMarker{Writer: &output, marker: "tmpl:start:2", resolve: func() { inner.Ok("done") }}
+	w := &resolveOnMarker{Writer: resolveInner, marker: "tmpl:start:1", resolve: func() { outer.Ok(inner) }}
+
+	if err := templates.Stream(context.Background(), w, Tmpl("page", outer)); err != nil {
+		t.Fatal(err)
+	}
+	got := output.String()
+	if !strings.Contains(got, `<!--tmpl:start:1-->outer<!--tmpl:end:1-->`) {
+		t.Fatalf("missing outer placeholder: %q", got)
+	}
+	if !strings.Contains(got, `<template data-tmpl-cid="1"><section><!--tmpl:start:2-->inner<!--tmpl:end:2--></section></template>`) {
+		t.Fatalf("missing outer fragment with the inner placeholder: %q", got)
+	}
+	if !strings.Contains(got, `<template data-tmpl-cid="2"><b>done</b></template>`) {
+		t.Fatalf("missing inner fragment: %q", got)
+	}
+	if strings.Index(got, `data-tmpl-cid="2"><b>`) < strings.Index(got, `data-tmpl-cid="1">`) {
+		t.Fatalf("inner fragment streamed before the outer one: %q", got)
+	}
+}
+
 func TestStreamInsideChildren(t *testing.T) {
 	templates := streamingTemplates(t, `{{ define "layout" }}before{{ children }}after{{ end }}{{ define "page" }}{{ stream "value" . }}{{ end }}{{ define "value" }}<strong>{{ . }}</strong>{{ end }}`)
 	value := NewAsync[string, error]()

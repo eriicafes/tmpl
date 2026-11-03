@@ -116,3 +116,7 @@ func main() {
 Under the hood, Tmpl surrounds a pending async value with comment boundaries and waits for the value in a separate goroutine. When the value is available, it sends the resolved template to the response stream and a client-side script replaces the content between those boundaries.
 
 The pending and resolved templates must be valid children of the element containing `stream`. For example, a stream inside an `h1` should resolve to text or phrasing content, not a `p`. Raw-text elements such as `script`, `style`, `title`, and `textarea` cannot contain streams.
+
+To pass a streamed template as a prop instead of rendering it in place, use `streamtmpl "lazy" .LazyData` and render it with `render` where it is used. It streams exactly like `stream`.
+
+To wait for a value where it is used instead of streaming it, use `await`, or `tryawait` to handle a failed value in the template.

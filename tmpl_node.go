@@ -26,6 +26,17 @@ func (w tmplwrap) tmplnode() (base, name string, data any) {
 	return w.base, w.name, w.data
 }
 
+// streamtmpl represents a template rendered with the value of an Async.
+type streamtmpl struct {
+	name string
+	av   asyncValue
+}
+
+func (s streamtmpl) Tmpl() Template { return s }
+func (s streamtmpl) tmplnode() (base, name string, data any) {
+	return s.name, s.name, nil
+}
+
 // tmplnode is the normalized internal representation of a Template.
 type tmplnode interface {
 	Template
@@ -35,6 +46,8 @@ type tmplnode interface {
 func normalize(tp Template) tmplnode {
 	switch n := tp.(type) {
 	case tmpl:
+		return n
+	case streamtmpl:
 		return n
 	case tmplwrap:
 		layout := normalize(n.layout)

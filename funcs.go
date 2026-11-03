@@ -6,10 +6,11 @@ import (
 )
 
 var funcMap = template.FuncMap{
-	"tmpl":  Tmpl,
-	"map":   mapFunc,
-	"props": mapFunc,
-	"clsx":  clsxFunc,
+	"tmpl":       Tmpl,
+	"streamtmpl": StreamTmpl,
+	"map":        mapFunc,
+	"props":      mapFunc,
+	"clsx":       clsxFunc,
 }
 
 func mapFunc(v ...any) (map[string]any, error) {

@@ -328,7 +328,7 @@ Use `tmpl` to create a `tmpl.Template` inside templates.
 
 `tmpl [template name] [template data]`
 
-Use `render` to execute component content. Component content can be a `tmpl.Template` or string.
+Use `render` to execute component content. Component content can be a `tmpl.Template`, a string, or a [`streamtmpl`](#streamtmpl).
 
 `render [component content]`
 
@@ -401,6 +401,25 @@ See more about [HTML Streaming](html-streaming.md).
 <!-- error template is optional -->
 {{ define "lazy:error" }}
 <p>Failed: {{ . }}</p>
+{{ end }}
+```
+
+### streamtmpl
+`streamtmpl` is `stream` as a template value, so a streamed template can be passed as a prop and rendered with `render` where the component puts it.
+It uses the same pending and error templates as `stream`.
+```html
+{{ template "card" props "children" (streamtmpl "lazy" .LazyData) }}
+```
+
+### await & tryawait
+`await` blocks until an async value resolves and returns its data, failing the render when the value fails.
+`tryawait` blocks the same way but returns a result with `Ok`, `Data` and `Err` instead of failing.
+Both flush what has rendered so far before waiting.
+```html
+{{ template "card" props "children" (tmpl "lazy" (await .LazyData)) }}
+
+{{ with tryawait .LazyData }}
+    {{ if .Ok }}<p>Resolved: {{ .Data }}</p>{{ else }}<p>Failed: {{ .Err }}</p>{{ end }}
 {{ end }}
 ```
 

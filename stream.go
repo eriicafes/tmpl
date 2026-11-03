@@ -19,27 +19,6 @@ type streamTemplate struct {
 	cid  uint32
 }
 
-func stream(t *template.Template, session *session, name string, av asyncValue) (template.HTML, error) {
-	if av == nil {
-		return "", fmt.Errorf("Async is nil")
-	}
-	if session == nil {
-		return "", fmt.Errorf("stream called outside a render session")
-	}
-	if data, stored := av.getStored(); stored {
-		return renderSync(t, name, data)
-	}
-	if !session.streaming {
-		session.flush()
-		data, resolved := av.get(session.ctx)
-		if !resolved {
-			return "", session.ctx.Err()
-		}
-		return renderSync(t, name, data)
-	}
-	return renderStream(t, session, name, av)
-}
-
 func renderSync(t *template.Template, name string, data streamData) (template.HTML, error) {
 	if !data.ok {
 		name += ":error"

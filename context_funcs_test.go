@@ -2,12 +2,15 @@ package tmpl
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"sync"
 	"testing"
 	"testing/fstest"
+	"time"
 )
 
 func TestRender(t *testing.T) {
@@ -127,5 +130,85 @@ func TestRenderRejectsInvalidContent(t *testing.T) {
 	err := templates.Render(io.Discard, Tmpl("render", 1))
 	if err == nil || !strings.Contains(err.Error(), "render expects a string or template, got int") {
 		t.Fatalf("expected invalid render content error, got %v", err)
+	}
+}
+
+func TestAwait(t *testing.T) {
+	templates := streamingTemplates(t, `before{{ template "value" (await .) }}{{ define "value" }}<b>{{ . }}</b>{{ end }}`)
+	value := NewAsync[string, error]()
+	go func() { time.Sleep(10 * time.Millisecond); value.Ok("done") }()
+	for _, streaming := range []bool{false, true} {
+		var output bytes.Buffer
+		var err error
+		if streaming {
+			err = templates.Stream(context.Background(), &output, Tmpl("page", value))
+		} else {
+			err = templates.Render(&output, Tmpl("page", value))
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := output.String(); got != "before<b>done</b>" {
+			t.Fatalf("streaming %v: got %q", streaming, got)
+		}
+	}
+}
+
+func TestAwaitAsProp(t *testing.T) {
+	templates := streamingTemplates(t, `{{ template "card" props "children" (tmpl "value" (await .)) }}{{ define "card" }}<section>{{ render .children }}</section>{{ end }}{{ define "value" }}{{ . }}{{ end }}`)
+	value := NewAsync[string, error]()
+	value.Ok("done")
+	var output bytes.Buffer
+	if err := templates.Render(&output, Tmpl("page", value)); err != nil {
+		t.Fatal(err)
+	}
+	if got := output.String(); got != "<section>done</section>" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+var errAwaitTest = errors.New("value failed")
+
+func TestAwaitError(t *testing.T) {
+	templates := streamingTemplates(t, `{{ await . }}`)
+	value := NewAsync[string, error]()
+	value.Err(errAwaitTest)
+	err := templates.Render(io.Discard, Tmpl("page", value))
+	if !errors.Is(err, errAwaitTest) {
+		t.Fatalf("expected the value's error, got %v", err)
+	}
+
+	other := NewAsync[string, string]()
+	other.Err("bad input")
+	err = templates.Render(io.Discard, Tmpl("page", other))
+	if err == nil || !strings.Contains(err.Error(), "await: bad input") {
+		t.Fatalf("expected the formatted error, got %v", err)
+	}
+}
+
+func TestTryAwait(t *testing.T) {
+	templates := streamingTemplates(t, `{{ with tryawait . }}{{ if .Ok }}ok:{{ .Data }}{{ else }}err:{{ .Err }}{{ end }}{{ end }}`)
+	ok := NewAsync[string, error]()
+	ok.Ok("done")
+	failed := NewAsync[string, error]()
+	failed.Err(errAwaitTest)
+	for value, want := range map[Async[string, error]]string{ok: "ok:done", failed: "err:value failed"} {
+		var output bytes.Buffer
+		if err := templates.Render(&output, Tmpl("page", value)); err != nil {
+			t.Fatal(err)
+		}
+		if got := output.String(); got != want {
+			t.Fatalf("got %q, want %q", got, want)
+		}
+	}
+}
+
+func TestAwaitStopsWithContext(t *testing.T) {
+	templates := streamingTemplates(t, `{{ await . }}`)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	err := templates.Stream(ctx, io.Discard, Tmpl("page", NewAsync[string, error]()))
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected the context's error, got %v", err)
 	}
 }
