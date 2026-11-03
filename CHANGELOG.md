@@ -1,5 +1,11 @@
 # tmpl
 
+## 0.16.0
+
+### Minor Changes
+
+- 44b66f4: Add streamtmpl, await and tryawait
+
 ## 0.15.1
 
 ### Patch Changes
